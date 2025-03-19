@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   FileAudio,
   BarChart,
+  Users,
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -56,11 +57,11 @@ export default function DashboardNavbar() {
               Sessions
             </NavLink>
             <NavLink
-              href="/dashboard/analytics"
-              icon={<BarChart size={18} />}
-              active={pathname.startsWith("/dashboard/analytics")}
+              href="/dashboard/supervisors"
+              icon={<Users size={18} />}
+              active={pathname.startsWith("/dashboard/supervisors")}
             >
-              Analytics
+              Supervisors
             </NavLink>
           </div>
         </div>

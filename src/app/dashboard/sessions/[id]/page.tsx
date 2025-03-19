@@ -65,6 +65,9 @@ export default async function SessionDetailPage({
         .order("segment_index", { ascending: true })
     : { data: null };
 
+  console.log("Transcript:", transcript);
+  console.log("Segments count:", segments?.length || 0);
+
   // Get comments
   const { data: comments } = await supabase
     .from("comments")
@@ -78,6 +81,12 @@ export default async function SessionDetailPage({
     .eq("session_id", sessionId)
     .is("parent_id", null)
     .order("created_at", { ascending: true });
+
+  console.log("Comments count:", comments?.length || 0);
+  console.log(
+    "Comments with segment_id:",
+    comments?.filter((c) => c.segment_id).length || 0,
+  );
 
   return (
     <>
