@@ -9,6 +9,204 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          end_time: number | null
+          id: string
+          parent_id: string | null
+          segment_id: string | null
+          session_id: string
+          start_time: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          end_time?: number | null
+          id?: string
+          parent_id?: string | null
+          segment_id?: string | null
+          session_id: string
+          start_time?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          end_time?: number | null
+          id?: string
+          parent_id?: string | null
+          segment_id?: string | null
+          session_id?: string
+          start_time?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "transcript_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          counselor_id: string
+          created_at: string | null
+          description: string | null
+          duration: number | null
+          id: string
+          recording_url: string | null
+          session_date: string
+          status: string | null
+          supervisor_id: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          counselor_id: string
+          created_at?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string
+          recording_url?: string | null
+          session_date: string
+          status?: string | null
+          supervisor_id?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          counselor_id?: string
+          created_at?: string | null
+          description?: string | null
+          duration?: number | null
+          id?: string
+          recording_url?: string | null
+          session_date?: string
+          status?: string | null
+          supervisor_id?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_counselor_id_fkey"
+            columns: ["counselor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcript_segments: {
+        Row: {
+          created_at: string | null
+          end_time: number
+          id: string
+          segment_index: number
+          speaker: string | null
+          start_time: number
+          text: string
+          transcript_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: number
+          id?: string
+          segment_index: number
+          speaker?: string | null
+          start_time: number
+          text: string
+          transcript_id: string
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: number
+          id?: string
+          segment_index?: number
+          speaker?: string | null
+          start_time?: number
+          text?: string
+          transcript_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcript_segments_transcript_id_fkey"
+            columns: ["transcript_id"]
+            isOneToOne: false
+            referencedRelation: "transcripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transcripts: {
+        Row: {
+          created_at: string | null
+          full_text: string | null
+          id: string
+          session_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_text?: string | null
+          id?: string
+          session_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_text?: string | null
+          id?: string
+          session_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -18,6 +216,7 @@ export type Database = {
           id: string
           image: string | null
           name: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
           token_identifier: string
           updated_at: string | null
           user_id: string | null
@@ -30,6 +229,7 @@ export type Database = {
           id: string
           image?: string | null
           name?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           token_identifier: string
           updated_at?: string | null
           user_id?: string | null
@@ -42,6 +242,7 @@ export type Database = {
           id?: string
           image?: string | null
           name?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
           token_identifier?: string
           updated_at?: string | null
           user_id?: string | null
@@ -56,7 +257,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "counselor" | "supervisor"
     }
     CompositeTypes: {
       [_ in never]: never
