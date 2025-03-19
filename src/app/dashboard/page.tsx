@@ -33,7 +33,7 @@ export default async function Dashboard() {
     .limit(5);
 
   // Get session stats
-  const { data: sessionCount } = await supabase
+  const { data: sessionCount, count } = await supabase
     .from("sessions")
     .select("id", { count: "exact", head: true });
 
@@ -46,7 +46,7 @@ export default async function Dashboard() {
           .is("supervisor_id", null)
           .eq("status", "ready")
           .limit(1)
-      : { data: [] };
+      : { data: [] as Array<{ id: string }> };
 
   return (
     <>
@@ -70,7 +70,7 @@ export default async function Dashboard() {
             <StatCard
               icon={<FileAudio className="h-8 w-8 text-blue-600" />}
               title="Total Sessions"
-              value={sessionCount?.count || 0}
+              value={count || 0}
               description="Sessions uploaded"
             />
 
@@ -78,7 +78,7 @@ export default async function Dashboard() {
               <StatCard
                 icon={<Clock className="h-8 w-8 text-amber-600" />}
                 title="Pending Reviews"
-                value={pendingSessions?.length || 0}
+                value={pendingSessions ? pendingSessions.length : 0}
                 description="Sessions awaiting review"
               />
             )}
@@ -111,7 +111,7 @@ export default async function Dashboard() {
                 </Button>
               </Link>
 
-              {userRole === "supervisor" && pendingSessions?.length > 0 && (
+              {userRole === "supervisor" && pendingSessions && pendingSessions.length > 0 && (
                 <Link href="/dashboard/sessions">
                   <Button variant="outline" className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />

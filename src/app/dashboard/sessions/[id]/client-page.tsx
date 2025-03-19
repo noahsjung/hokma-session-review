@@ -17,6 +17,15 @@ interface ClientPageProps {
   comments: any[];
 }
 
+interface Reply {
+  id: string;
+  content: string;
+  created_at: string;
+  users?: {
+    full_name: string;
+  };
+}
+
 export default function ClientPage({
   sessionId,
   session,
@@ -168,7 +177,7 @@ export default function ClientPage({
 
                       {comment.replies && comment.replies.length > 0 && (
                         <div className="ml-11 mt-3 space-y-3">
-                          {comment.replies.map((reply) => (
+                          {comment.replies.map((reply: Reply) => (
                             <div
                               key={reply.id}
                               className="bg-gray-50 rounded-lg p-3"

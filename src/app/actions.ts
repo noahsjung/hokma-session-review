@@ -44,8 +44,8 @@ export const signUpAction = async (formData: FormData) => {
   console.log("After signUp", error);
 
   if (error) {
-    console.error(error.code + " " + error.message);
-    return encodedRedirect("error", "/sign-up", error.message);
+    console.error(error instanceof Error ? error.code + " " + error.message : error);
+    return encodedRedirect("error", "/sign-up", error instanceof Error ? error.message : "An unknown error occurred");
   }
 
   if (user) {
@@ -87,7 +87,7 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    return encodedRedirect("error", "/sign-in", error instanceof Error ? error.message : "An unknown error occurred");
   }
 
   return redirect("/dashboard");
@@ -108,12 +108,8 @@ export const forgotPasswordAction = async (formData: FormData) => {
   });
 
   if (error) {
-    console.error(error.message);
-    return encodedRedirect(
-      "error",
-      "/forgot-password",
-      "Could not reset password",
-    );
+    console.error(error instanceof Error ? error.message : error);
+    return encodedRedirect("error", "/forgot-password", "Failed to send reset password link");
   }
 
   if (callbackUrl) {
@@ -254,7 +250,7 @@ export const createSessionAction = async (formData: FormData) => {
     return redirect(`/dashboard/sessions/${session.id}`);
   } catch (error) {
     console.error("Error in session creation:", error);
-    return encodedRedirect("error", "/dashboard/sessions/new", error.message);
+    return encodedRedirect("error", "/dashboard/sessions/new", error instanceof Error ? error.message : "An unknown error occurred");
   }
 };
 
@@ -304,7 +300,7 @@ export const addCommentAction = async (formData: FormData) => {
     });
 
     if (error) {
-      throw new Error(`Failed to add comment: ${error.message}`);
+      throw new Error(`Failed to add comment: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
 
     return redirect(`/dashboard/sessions/${sessionId}`);
@@ -313,7 +309,7 @@ export const addCommentAction = async (formData: FormData) => {
     return encodedRedirect(
       "error",
       `/dashboard/sessions/${sessionId}`,
-      error.message,
+      error instanceof Error ? error.message : "Unknown error",
     );
   }
 };

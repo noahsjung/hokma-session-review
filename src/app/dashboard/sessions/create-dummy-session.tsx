@@ -313,7 +313,7 @@ export default function CreateDummySession() {
       router.push(`/dashboard/sessions/${session.id}`);
     } catch (error) {
       console.error("Error creating dummy session:", error);
-      setError(error.message);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
       setIsCreating(false);
     }
   };
