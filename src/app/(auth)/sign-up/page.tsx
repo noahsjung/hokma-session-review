@@ -2,6 +2,7 @@ import { FormMessage, Message } from "@/components/form-message";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import Link from "next/link";
 import { SmtpMessage } from "../smtp-message";
 import { signUpAction } from "@/app/actions";
@@ -28,7 +29,9 @@ export default async function Signup(props: {
           <UrlProvider>
             <form className="flex flex-col space-y-6">
               <div className="space-y-2 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight">Sign up</h1>
+                <h1 className="text-3xl font-semibold tracking-tight">
+                  Sign up
+                </h1>
                 <p className="text-sm text-muted-foreground">
                   Already have an account?{" "}
                   <Link
@@ -82,6 +85,28 @@ export default async function Signup(props: {
                     required
                     className="w-full"
                   />
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">I am a:</Label>
+                  <RadioGroup
+                    defaultValue="counselor"
+                    name="role"
+                    className="flex flex-col space-y-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="counselor" id="counselor" />
+                      <Label htmlFor="counselor" className="font-normal">
+                        Counselor
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="supervisor" id="supervisor" />
+                      <Label htmlFor="supervisor" className="font-normal">
+                        Supervisor
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
 
