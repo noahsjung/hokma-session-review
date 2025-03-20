@@ -204,7 +204,15 @@ export default function ClientPage({
                               >
                                 <Edit size={14} />
                               </Button>
-                              <form action={deleteCommentAction}>
+                              <form
+                                action={async (formData) => {
+                                  const result =
+                                    await deleteCommentAction(formData);
+                                  if (result?.redirectUrl) {
+                                    window.location.href = result.redirectUrl;
+                                  }
+                                }}
+                              >
                                 <input
                                   type="hidden"
                                   name="comment_id"
@@ -238,7 +246,12 @@ export default function ClientPage({
                       {editingComment === comment.id ? (
                         <div className="ml-11">
                           <form
-                            action={editCommentAction}
+                            action={async (formData) => {
+                              const result = await editCommentAction(formData);
+                              if (result?.redirectUrl) {
+                                window.location.href = result.redirectUrl;
+                              }
+                            }}
                             className="space-y-3"
                           >
                             <input
@@ -308,7 +321,16 @@ export default function ClientPage({
                                 {userRole === "supervisor" &&
                                   reply.user_id === userId && (
                                     <div className="flex gap-1">
-                                      <form action={deleteCommentAction}>
+                                      <form
+                                        action={async (formData) => {
+                                          const result =
+                                            await deleteCommentAction(formData);
+                                          if (result?.redirectUrl) {
+                                            window.location.href =
+                                              result.redirectUrl;
+                                          }
+                                        }}
+                                      >
                                         <input
                                           type="hidden"
                                           name="comment_id"
@@ -342,7 +364,12 @@ export default function ClientPage({
                       {!editingComment && (
                         <div className="ml-11 mt-3">
                           <form
-                            action={addCommentAction}
+                            action={async (formData) => {
+                              const result = await addCommentAction(formData);
+                              if (result?.redirectUrl) {
+                                window.location.href = result.redirectUrl;
+                              }
+                            }}
                             className="flex gap-2"
                           >
                             <input
@@ -382,22 +409,28 @@ export default function ClientPage({
               </div>
             )}
 
-            {userRole === "supervisor" && (
-              <div className="mt-6 pt-6 border-t">
-                <form action={addCommentAction} className="space-y-4">
-                  <input type="hidden" name="session_id" value={sessionId} />
-                  <textarea
-                    name="content"
-                    placeholder="Add your general feedback here..."
-                    className="w-full p-3 border rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  ></textarea>
-                  <Button type="submit" className="w-full">
-                    Add General Comment
-                  </Button>
-                </form>
-              </div>
-            )}
+            <div className="mt-6 pt-6 border-t">
+              <form
+                action={async (formData) => {
+                  const result = await addCommentAction(formData);
+                  if (result?.redirectUrl) {
+                    window.location.href = result.redirectUrl;
+                  }
+                }}
+                className="space-y-4"
+              >
+                <input type="hidden" name="session_id" value={sessionId} />
+                <textarea
+                  name="content"
+                  placeholder="Add your general feedback here..."
+                  className="w-full p-3 border rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                ></textarea>
+                <Button type="submit" className="w-full">
+                  Add General Comment
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
       </div>

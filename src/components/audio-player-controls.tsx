@@ -54,6 +54,17 @@ export default function AudioPlayerControls({
       // Only handle keyboard events if the player is in view
       if (!playerRef.current) return;
 
+      // Check if user is typing in an input field, textarea, or contentEditable element
+      const activeElement = document.activeElement;
+      const isTyping =
+        activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement ||
+        activeElement?.getAttribute("contenteditable") === "true" ||
+        activeElement?.tagName === "FORM";
+
+      // Skip keyboard shortcuts if user is typing
+      if (isTyping) return;
+
       // Prevent default space behavior (scrolling)
       if (e.code === "Space") {
         e.preventDefault();
@@ -121,14 +132,38 @@ export default function AudioPlayerControls({
       ref={playerRef}
       className={`bg-white border-t shadow-md transition-all h-16 ${isFixed ? "fixed bottom-0 left-0 right-0 z-50" : ""}`}
     >
-      <div className="h-full flex items-center justify-between px-4">
-        <div className="flex items-center gap-2 w-24">
-          <span className="text-sm text-gray-500">
-            {formatTime(currentTime)}
-          </span>
+      <div className="h-full flex items-center px-4">
+        {/* Play controls on the left */}
+        <div className="flex items-center gap-2 mr-4">
+          <button
+            className="text-gray-600 hover:text-blue-600"
+            onClick={handleSkipBack}
+            aria-label="Skip back 10 seconds"
+          >
+            <SkipBack size={20} />
+          </button>
+          <button
+            className={`${isPlaying ? "bg-blue-700" : "bg-blue-600"} text-white rounded-full p-2 hover:bg-blue-700`}
+            onClick={handlePlayPause}
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            {isPlaying ? (
+              <Pause size={20} />
+            ) : (
+              <Play size={20} fill="currentColor" />
+            )}
+          </button>
+          <button
+            className="text-gray-600 hover:text-blue-600"
+            onClick={handleSkipForward}
+            aria-label="Skip forward 10 seconds"
+          >
+            <SkipForward size={20} />
+          </button>
         </div>
 
-        <div className="flex-grow mx-4">
+        {/* Timeline slider takes most of the space */}
+        <div className="flex-grow mx-2">
           <input
             type="range"
             min="0"
@@ -142,102 +177,78 @@ export default function AudioPlayerControls({
           />
         </div>
 
-        <div className="flex items-center gap-2 w-24 justify-end">
-          <span className="text-sm text-gray-500">{formatTime(duration)}</span>
+        {/* Right side controls */}
+        <div className="flex items-center gap-4">
+          {/* Combined timestamp display */}
+          <span className="text-sm text-gray-500 whitespace-nowrap">
+            {formatTime(currentTime)} / {formatTime(duration)}
+          </span>
+
+          {/* Volume control */}
+          <div className="flex items-center gap-2">
+            <Volume2 size={16} className="text-gray-500" />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={volume}
+              onChange={handleVolumeChange}
+              className="w-16 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #6b7280 ${volume * 100}%, #e5e7eb ${volume * 100}%)`,
+              }}
+            />
+          </div>
+
+          {/* Playback speed */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <Settings size={16} />
+                <span className="sr-only">Playback speed</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(0.5)}
+                className={playbackSpeed === 0.5 ? "bg-gray-100" : ""}
+              >
+                0.5x
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(0.75)}
+                className={playbackSpeed === 0.75 ? "bg-gray-100" : ""}
+              >
+                0.75x
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(1.0)}
+                className={playbackSpeed === 1.0 ? "bg-gray-100" : ""}
+              >
+                1.0x
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(1.25)}
+                className={playbackSpeed === 1.25 ? "bg-gray-100" : ""}
+              >
+                1.25x
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(1.5)}
+                className={playbackSpeed === 1.5 ? "bg-gray-100" : ""}
+              >
+                1.5x
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleSpeedChange(2.0)}
+                className={playbackSpeed === 2.0 ? "bg-gray-100" : ""}
+              >
+                2.0x
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-
-      <div className="absolute left-1/2 transform -translate-x-1/2 -translate-y-1/2 top-1/2 flex items-center gap-4">
-        <button
-          className="text-gray-600 hover:text-blue-600"
-          onClick={handleSkipBack}
-          aria-label="Skip back 10 seconds"
-        >
-          <SkipBack size={20} />
-        </button>
-        <button
-          className={`${isPlaying ? "bg-blue-700" : "bg-blue-600"} text-white rounded-full p-2 hover:bg-blue-700`}
-          onClick={handlePlayPause}
-          aria-label={isPlaying ? "Pause" : "Play"}
-        >
-          {isPlaying ? (
-            <Pause size={20} />
-          ) : (
-            <Play size={20} fill="currentColor" />
-          )}
-        </button>
-        <button
-          className="text-gray-600 hover:text-blue-600"
-          onClick={handleSkipForward}
-          aria-label="Skip forward 10 seconds"
-        >
-          <SkipForward size={20} />
-        </button>
-      </div>
-
-      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <Volume2 size={16} className="text-gray-500" />
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={handleVolumeChange}
-            className="w-16 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, #6b7280 ${volume * 100}%, #e5e7eb ${volume * 100}%)`,
-            }}
-          />
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Settings size={16} />
-              <span className="sr-only">Playback speed</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(0.5)}
-              className={playbackSpeed === 0.5 ? "bg-gray-100" : ""}
-            >
-              0.5x
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(0.75)}
-              className={playbackSpeed === 0.75 ? "bg-gray-100" : ""}
-            >
-              0.75x
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(1.0)}
-              className={playbackSpeed === 1.0 ? "bg-gray-100" : ""}
-            >
-              1.0x
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(1.25)}
-              className={playbackSpeed === 1.25 ? "bg-gray-100" : ""}
-            >
-              1.25x
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(1.5)}
-              className={playbackSpeed === 1.5 ? "bg-gray-100" : ""}
-            >
-              1.5x
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => handleSpeedChange(2.0)}
-              className={playbackSpeed === 2.0 ? "bg-gray-100" : ""}
-            >
-              2.0x
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import Footer from "@/components/footer";
 import Hero from "@/components/hero";
 import Navbar from "@/components/navbar";
+import { redirect } from "next/navigation";
 import {
   ArrowUpRight,
   MessageSquare,
@@ -18,6 +19,11 @@ export default async function Home() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // If user is logged in, redirect to dashboard
+  if (user) {
+    return redirect("/dashboard");
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">

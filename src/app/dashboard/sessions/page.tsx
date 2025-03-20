@@ -94,9 +94,9 @@ export default async function SessionsPage() {
                       <th className="px-6 py-3 font-medium">
                         {userRole === "supervisor" ? "Counselor" : "Date"}
                       </th>
+                      <th className="px-6 py-3 font-medium">Duration</th>
                       <th className="px-6 py-3 font-medium">Status</th>
                       <th className="px-6 py-3 font-medium">Comments</th>
-                      <th className="px-6 py-3 font-medium">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -106,20 +106,17 @@ export default async function SessionsPage() {
                         className="border-b last:border-0 hover:bg-gray-50"
                       >
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <FileAudio className="text-blue-500" size={20} />
-                            <div>
-                              <Link href={`/dashboard/sessions/${session.id}`}>
-                                <p className="font-medium hover:text-blue-600 hover:underline cursor-pointer">
-                                  {session.title}
-                                </p>
-                              </Link>
-                              <p className="text-sm text-gray-500">
-                                {new Date(
-                                  session.session_date,
-                                ).toLocaleDateString()}
+                          <div>
+                            <Link href={`/dashboard/sessions/${session.id}`}>
+                              <p className="font-medium hover:text-blue-600 hover:underline cursor-pointer">
+                                {session.title}
                               </p>
-                            </div>
+                            </Link>
+                            <p className="text-sm text-gray-500">
+                              {new Date(
+                                session.session_date,
+                              ).toLocaleDateString()}
+                            </p>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -128,17 +125,15 @@ export default async function SessionsPage() {
                             : new Date(session.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4">
+                          {session.duration
+                            ? `${Math.floor(session.duration / 60)}:${(session.duration % 60).toString().padStart(2, "0")}`
+                            : "--"}
+                        </td>
+                        <td className="px-6 py-4">
                           <SessionStatus status={session.status} />
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-gray-500">0</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <Link href={`/dashboard/sessions/${session.id}`}>
-                            <Button variant="outline" size="sm">
-                              View
-                            </Button>
-                          </Link>
                         </td>
                       </tr>
                     ))}

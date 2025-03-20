@@ -273,7 +273,7 @@ export const createSessionAction = async (formData: FormData) => {
   }
 };
 
-export const addCommentAction = async (formData: FormData) => {
+export async function addCommentAction(formData: FormData) {
   const supabase = await createClient();
 
   const {
@@ -324,22 +324,22 @@ export const addCommentAction = async (formData: FormData) => {
       );
     }
 
-    return encodedRedirect(
-      "success",
-      `/dashboard/sessions/${sessionId}`,
-      "Comment added successfully",
-    );
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment added successfully`,
+    };
   } catch (error) {
     console.error("Error adding comment:", error);
-    return encodedRedirect(
-      "error",
-      `/dashboard/sessions/${sessionId}`,
-      error instanceof Error ? error.message : "Unknown error",
-    );
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
   }
-};
+}
 
-export const editCommentAction = async (formData: FormData) => {
+export async function editCommentAction(formData: FormData) {
   const supabase = await createClient();
 
   const {
@@ -372,10 +372,14 @@ export const editCommentAction = async (formData: FormData) => {
       .from("comments")
       .select("user_id")
       .eq("id", commentId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (!comment) {
+      throw new Error(`Comment not found with ID: ${commentId}`);
     }
 
     if (comment.user_id !== user.id) {
@@ -396,22 +400,22 @@ export const editCommentAction = async (formData: FormData) => {
       throw new Error(`Failed to update comment: ${error.message}`);
     }
 
-    return encodedRedirect(
-      "success",
-      `/dashboard/sessions/${sessionId}`,
-      "Comment updated successfully",
-    );
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment updated successfully`,
+    };
   } catch (error) {
     console.error("Error editing comment:", error);
-    return encodedRedirect(
-      "error",
-      `/dashboard/sessions/${sessionId}`,
-      error instanceof Error ? error.message : "Unknown error",
-    );
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
   }
-};
+}
 
-export const deleteCommentAction = async (formData: FormData) => {
+export async function deleteCommentAction(formData: FormData) {
   const supabase = await createClient();
 
   const {
@@ -443,10 +447,14 @@ export const deleteCommentAction = async (formData: FormData) => {
       .from("comments")
       .select("user_id")
       .eq("id", commentId)
-      .single();
+      .maybeSingle();
 
     if (fetchError) {
       throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (!comment) {
+      throw new Error(`Comment not found with ID: ${commentId}`);
     }
 
     if (comment.user_id !== user.id) {
@@ -467,17 +475,17 @@ export const deleteCommentAction = async (formData: FormData) => {
       throw new Error(`Failed to delete comment: ${error.message}`);
     }
 
-    return encodedRedirect(
-      "success",
-      `/dashboard/sessions/${sessionId}`,
-      "Comment deleted successfully",
-    );
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment deleted successfully`,
+    };
   } catch (error) {
     console.error("Error deleting comment:", error);
-    return encodedRedirect(
-      "error",
-      `/dashboard/sessions/${sessionId}`,
-      error instanceof Error ? error.message : "Unknown error",
-    );
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
   }
-};
+}

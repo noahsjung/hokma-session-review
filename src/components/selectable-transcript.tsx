@@ -77,9 +77,14 @@ export default function SelectableTranscript({
     {},
   );
 
+  // Reset comment form when comments change (new comment added)
+  useEffect(() => {
+    setShowCommentForm(false);
+  }, [comments.length]);
+
   // Add comment icons to text on hover
   useEffect(() => {
-    if (userRole !== "supervisor" || !hoveredSegment) return;
+    if (!hoveredSegment) return;
 
     const textElement = textRefs.current[hoveredSegment];
     if (!textElement) return;
@@ -133,7 +138,7 @@ export default function SelectableTranscript({
         textElement.innerHTML = text;
       }
     };
-  }, [hoveredSegment, userRole, segments]);
+  }, [hoveredSegment, segments]);
 
   const handleSentenceComment = (
     segment: TranscriptSegment,
@@ -230,14 +235,12 @@ export default function SelectableTranscript({
         <div className="relative p-4 bg-white rounded-lg border border-gray-200">
           <p
             className="text-gray-800 cursor-text whitespace-pre-wrap"
-            onMouseUp={() =>
-              userRole === "supervisor" && handleTextSelection(segments[0])
-            }
+            onMouseUp={() => handleTextSelection(segments[0])}
           >
             {segments.map((s) => s.text).join(" ")}
           </p>
 
-          {userRole === "supervisor" && !showCommentForm && (
+          {!showCommentForm && (
             <div className="absolute right-4 top-4">
               <Button
                 variant="ghost"
@@ -254,7 +257,16 @@ export default function SelectableTranscript({
           {/* Comment form for continuous transcript */}
           {showCommentForm && selectedSegment && (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <form action={addCommentAction} className="space-y-3">
+              <form
+                action={async (formData) => {
+                  const result = await addCommentAction(formData);
+                  if (result?.redirectUrl) {
+                    setShowCommentForm(false);
+                    window.location.href = result.redirectUrl;
+                  }
+                }}
+                className="space-y-3"
+              >
                 <input type="hidden" name="session_id" value={sessionId} />
                 <input
                   type="hidden"
@@ -349,7 +361,7 @@ export default function SelectableTranscript({
                             name="content"
                             value={editContent}
                             onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full p-2 text-sm border rounded-md min-h-[60px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             required
                           ></textarea>
                           <div className="flex justify-end gap-2 mt-2">
@@ -439,9 +451,7 @@ export default function SelectableTranscript({
               <p
                 ref={(el) => (textRefs.current[segment.id] = el)}
                 className="text-gray-800 cursor-text"
-                onMouseUp={() =>
-                  userRole === "supervisor" && handleTextSelection(segment)
-                }
+                onMouseUp={() => handleTextSelection(segment)}
               >
                 {segment.text}
               </p>
@@ -469,7 +479,15 @@ export default function SelectableTranscript({
                         )}
 
                         {editingComment === comment.id ? (
-                          <form action={editCommentAction} className="mt-1">
+                          <form
+                            action={async (formData) => {
+                              const result = await editCommentAction(formData);
+                              if (result?.redirectUrl) {
+                                window.location.href = result.redirectUrl;
+                              }
+                            }}
+                            className="mt-1"
+                          >
                             <input
                               type="hidden"
                               name="comment_id"
@@ -484,7 +502,7 @@ export default function SelectableTranscript({
                               name="content"
                               value={editContent}
                               onChange={(e) => setEditContent(e.target.value)}
-                              className="w-full p-2 text-sm border rounded-md min-h-[60px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               required
                             ></textarea>
                             <div className="flex justify-end gap-2 mt-2">
@@ -517,7 +535,14 @@ export default function SelectableTranscript({
                         >
                           <Edit size={14} />
                         </Button>
-                        <form action={deleteCommentAction}>
+                        <form
+                          action={async (formData) => {
+                            const result = await deleteCommentAction(formData);
+                            if (result?.redirectUrl) {
+                              window.location.href = result.redirectUrl;
+                            }
+                          }}
+                        >
                           <input
                             type="hidden"
                             name="comment_id"
@@ -549,7 +574,16 @@ export default function SelectableTranscript({
                   className="mt-2 ml-8 p-3 bg-gray-50 rounded-lg border border-gray-200"
                   style={{ marginTop: `${commentPosition.top}px` }}
                 >
-                  <form action={addCommentAction} className="space-y-3">
+                  <form
+                    action={async (formData) => {
+                      const result = await addCommentAction(formData);
+                      if (result?.redirectUrl) {
+                        setShowCommentForm(false);
+                        window.location.href = result.redirectUrl;
+                      }
+                    }}
+                    className="space-y-3"
+                  >
                     <input type="hidden" name="session_id" value={sessionId} />
                     <input
                       type="hidden"
@@ -605,21 +639,19 @@ export default function SelectableTranscript({
               )}
             </div>
 
-            {userRole === "supervisor" &&
-              !showCommentForm &&
-              hoveredSegment === segment.id && (
-                <div className="absolute right-0 top-0 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-600"
-                    onClick={() => handleAddComment(segment)}
-                  >
-                    <MessageSquare size={16} className="mr-1" />
-                    Comment
-                  </Button>
-                </div>
-              )}
+            {!showCommentForm && hoveredSegment === segment.id && (
+              <div className="absolute right-0 top-0 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-600"
+                  onClick={() => handleAddComment(segment)}
+                >
+                  <MessageSquare size={16} className="mr-1" />
+                  Comment
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </div>
