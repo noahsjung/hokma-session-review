@@ -111,14 +111,19 @@ export default async function Dashboard() {
                 </Button>
               </Link>
 
-              {userRole === "supervisor" && pendingSessions && pendingSessions.length > 0 && (
-                <Link href="/dashboard/sessions">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Review Pending Sessions
-                  </Button>
-                </Link>
-              )}
+              {userRole === "supervisor" &&
+                pendingSessions &&
+                pendingSessions.length > 0 && (
+                  <Link href="/dashboard/sessions">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Clock className="h-4 w-4" />
+                      Review Pending Sessions
+                    </Button>
+                  </Link>
+                )}
 
               <Link href="/dashboard/analytics">
                 <Button variant="outline" className="flex items-center gap-2">
@@ -160,7 +165,13 @@ export default async function Dashboard() {
                         key={session.id}
                         className="border-b last:border-0 hover:bg-gray-50"
                       >
-                        <td className="py-3">{session.title}</td>
+                        <td className="py-3">
+                          <Link href={`/dashboard/sessions/${session.id}`}>
+                            <span className="hover:text-blue-600 hover:underline cursor-pointer">
+                              {session.title}
+                            </span>
+                          </Link>
+                        </td>
                         <td className="py-3">
                           {userRole === "supervisor"
                             ? session.users?.full_name

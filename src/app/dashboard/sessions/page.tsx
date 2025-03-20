@@ -109,7 +109,11 @@ export default async function SessionsPage() {
                           <div className="flex items-center gap-3">
                             <FileAudio className="text-blue-500" size={20} />
                             <div>
-                              <p className="font-medium">{session.title}</p>
+                              <Link href={`/dashboard/sessions/${session.id}`}>
+                                <p className="font-medium hover:text-blue-600 hover:underline cursor-pointer">
+                                  {session.title}
+                                </p>
+                              </Link>
                               <p className="text-sm text-gray-500">
                                 {new Date(
                                   session.session_date,

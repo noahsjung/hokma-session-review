@@ -57,13 +57,19 @@ export default async function SessionDetailPage({
     .eq("session_id", sessionId)
     .single();
 
-  const { data: segments } = transcript
-    ? await supabase
-        .from("transcript_segments")
-        .select("*")
-        .eq("transcript_id", transcript.id)
-        .order("segment_index", { ascending: true })
-    : { data: null };
+  console.log("Transcript data:", transcript);
+
+  let segments = null;
+  if (transcript) {
+    const { data: segmentsData } = await supabase
+      .from("transcript_segments")
+      .select("*")
+      .eq("transcript_id", transcript.id)
+      .order("segment_index", { ascending: true });
+
+    segments = segmentsData;
+    console.log("Segments data count:", segmentsData?.length || 0);
+  }
 
   console.log("Transcript:", transcript);
   console.log("Segments count:", segments?.length || 0);

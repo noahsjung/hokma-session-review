@@ -235,10 +235,31 @@ export default function CreateDummySession() {
         },
       ];
 
-      const { data: createdSegments, error: segmentsError } = await supabase
-        .from("transcript_segments")
-        .insert(segments)
-        .select();
+      // Insert segments in smaller batches to avoid potential size limitations
+      const batchSize = 5;
+      let createdSegments = [];
+
+      for (let i = 0; i < segments.length; i += batchSize) {
+        const batch = segments.slice(i, i + batchSize);
+        const { data: batchResult, error: batchError } = await supabase
+          .from("transcript_segments")
+          .insert(batch)
+          .select();
+
+        if (batchError) {
+          throw new Error(
+            `Failed to create transcript segments batch ${i / batchSize + 1}: ${batchError.message}`,
+          );
+        }
+
+        if (batchResult) {
+          createdSegments = [...createdSegments, ...batchResult];
+        }
+      }
+
+      console.log(
+        `Successfully created ${createdSegments.length} transcript segments`,
+      );
 
       if (segmentsError) {
         throw new Error(
@@ -313,7 +334,9 @@ export default function CreateDummySession() {
       router.push(`/dashboard/sessions/${session.id}`);
     } catch (error) {
       console.error("Error creating dummy session:", error);
-      setError(error instanceof Error ? error.message : "An unknown error occurred");
+      setError(
+        error instanceof Error ? error.message : "An unknown error occurred",
+      );
       setIsCreating(false);
     }
   };

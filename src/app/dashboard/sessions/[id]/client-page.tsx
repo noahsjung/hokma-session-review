@@ -2,10 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { addCommentAction } from "@/app/actions";
+import {
+  addCommentAction,
+  editCommentAction,
+  deleteCommentAction,
+} from "@/app/actions";
 import MarkAsReviewedButton from "@/components/mark-as-reviewed-button";
 import AudioPlayerControls from "@/components/audio-player-controls";
-import { FileAudio, User, UserCircle } from "lucide-react";
+import { FileAudio, User, UserCircle, Edit, Trash } from "lucide-react";
 import SelectableTranscript from "@/components/selectable-transcript";
 
 interface ClientPageProps {
@@ -21,7 +25,9 @@ interface Reply {
   id: string;
   content: string;
   created_at: string;
+  user_id?: string;
   users?: {
+    id: string;
     full_name: string;
   };
 }
@@ -36,7 +42,10 @@ export default function ClientPage({
 }: ClientPageProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [showFixedPlayer, setShowFixedPlayer] = useState(false);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const userId = session?.counselor?.id || "";
 
   // Handle scroll to determine when to show fixed player
   useEffect(() => {
@@ -57,9 +66,18 @@ export default function ClientPage({
     // In a real implementation, this would control the actual audio playback
   };
 
+  const handleEditComment = (comment: any) => {
+    setEditingComment(comment.id);
+    setEditContent(comment.content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingComment(null);
+    setEditContent("");
+  };
+
   return (
     <main className="w-full bg-gray-50 min-h-screen pb-24">
-      {/* Always show fixed player at bottom */}
       <div className="container mx-auto px-4 py-8">
         {/* Session Header */}
         <div className="bg-white rounded-xl p-6 border shadow-sm mb-6">
@@ -103,19 +121,23 @@ export default function ClientPage({
         >
           {/* Audio Player and Transcript */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Audio Player removed from here - now only shown fixed at bottom */}
-
             {/* Transcript with selectable text */}
             <div className="bg-white rounded-xl p-6 border shadow-sm">
               <h2 className="text-xl font-semibold mb-4">Transcript</h2>
 
               {segments && segments.length > 0 ? (
-                <SelectableTranscript
-                  segments={segments}
-                  sessionId={sessionId}
-                  userRole={userRole}
-                  comments={comments.filter((c) => c.segment_id)}
-                />
+                <>
+                  <p className="mb-4 text-sm text-gray-500">
+                    {segments.length} segments found
+                  </p>
+                  <SelectableTranscript
+                    segments={segments}
+                    sessionId={sessionId}
+                    userRole={userRole}
+                    comments={comments.filter((c) => c.segment_id)}
+                    userId={userId}
+                  />
+                </>
               ) : session.status === "transcribing" ? (
                 <div className="text-center py-12">
                   <div className="animate-pulse flex flex-col items-center">
@@ -130,6 +152,11 @@ export default function ClientPage({
               ) : (
                 <div className="text-center py-12 text-gray-500">
                   <p>No transcript available yet.</p>
+                  <p className="mt-2 text-sm">
+                    {transcript
+                      ? "Transcript exists but no segments found."
+                      : "No transcript found for this session."}
+                  </p>
                 </div>
               )}
             </div>
@@ -148,20 +175,57 @@ export default function ClientPage({
                       key={comment.id}
                       className="border-b pb-4 last:border-0"
                     >
-                      <div className="flex items-start gap-3 mb-2">
-                        <div className="bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center">
-                          <User size={16} />
-                        </div>
-                        <div>
-                          <div className="font-medium">
-                            {comment.user.full_name}
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-start gap-3">
+                          <div className="bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center">
+                            <User size={16} />
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {typeof window === "undefined"
-                              ? ""
-                              : new Date(comment.created_at).toLocaleString()}
+                          <div>
+                            <div className="font-medium">
+                              {comment.user.full_name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {typeof window === "undefined"
+                                ? ""
+                                : new Date(comment.created_at).toLocaleString()}
+                            </div>
                           </div>
                         </div>
+
+                        {userRole === "supervisor" &&
+                          comment.user.id === userId &&
+                          !editingComment && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => handleEditComment(comment)}
+                              >
+                                <Edit size={14} />
+                              </Button>
+                              <form action={deleteCommentAction}>
+                                <input
+                                  type="hidden"
+                                  name="comment_id"
+                                  value={comment.id}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="session_id"
+                                  value={sessionId}
+                                />
+                                <Button
+                                  type="submit"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                >
+                                  <Trash size={14} />
+                                </Button>
+                              </form>
+                            </div>
+                          )}
                       </div>
 
                       {comment.start_time && comment.end_time && (
@@ -171,9 +235,49 @@ export default function ClientPage({
                         </div>
                       )}
 
-                      <div className="ml-11 text-gray-800">
-                        {comment.content}
-                      </div>
+                      {editingComment === comment.id ? (
+                        <div className="ml-11">
+                          <form
+                            action={editCommentAction}
+                            className="space-y-3"
+                          >
+                            <input
+                              type="hidden"
+                              name="comment_id"
+                              value={comment.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="session_id"
+                              value={sessionId}
+                            />
+                            <textarea
+                              name="content"
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              required
+                            ></textarea>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleCancelEdit}
+                              >
+                                Cancel
+                              </Button>
+                              <Button type="submit" size="sm">
+                                Save
+                              </Button>
+                            </div>
+                          </form>
+                        </div>
+                      ) : (
+                        <div className="ml-11 text-gray-800">
+                          {comment.content}
+                        </div>
+                      )}
 
                       {comment.replies && comment.replies.length > 0 && (
                         <div className="ml-11 mt-3 space-y-3">
@@ -182,22 +286,50 @@ export default function ClientPage({
                               key={reply.id}
                               className="bg-gray-50 rounded-lg p-3"
                             >
-                              <div className="flex items-start gap-2 mb-1">
-                                <div className="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center">
-                                  <User size={12} />
-                                </div>
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    {reply.users?.full_name}
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="flex items-start gap-2">
+                                  <div className="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center">
+                                    <User size={12} />
                                   </div>
-                                  <div className="text-xs text-gray-500">
-                                    {typeof window === "undefined"
-                                      ? ""
-                                      : new Date(
-                                          reply.created_at,
-                                        ).toLocaleString()}
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      {reply.users?.full_name}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {typeof window === "undefined"
+                                        ? ""
+                                        : new Date(
+                                            reply.created_at,
+                                          ).toLocaleString()}
+                                    </div>
                                   </div>
                                 </div>
+
+                                {userRole === "supervisor" &&
+                                  reply.user_id === userId && (
+                                    <div className="flex gap-1">
+                                      <form action={deleteCommentAction}>
+                                        <input
+                                          type="hidden"
+                                          name="comment_id"
+                                          value={reply.id}
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="session_id"
+                                          value={sessionId}
+                                        />
+                                        <Button
+                                          type="submit"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 w-5 p-0 text-red-500 hover:text-red-700"
+                                        >
+                                          <Trash size={12} />
+                                        </Button>
+                                      </form>
+                                    </div>
+                                  )}
                               </div>
                               <div className="ml-8 text-sm text-gray-800">
                                 {reply.content}
@@ -207,30 +339,35 @@ export default function ClientPage({
                         </div>
                       )}
 
-                      <div className="ml-11 mt-3">
-                        <form action={addCommentAction} className="flex gap-2">
-                          <input
-                            type="hidden"
-                            name="session_id"
-                            value={sessionId}
-                          />
-                          <input
-                            type="hidden"
-                            name="parent_id"
-                            value={comment.id}
-                          />
-                          <input
-                            type="text"
-                            name="content"
-                            placeholder="Reply to this comment..."
-                            className="flex-grow text-sm px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            required
-                          />
-                          <Button type="submit" size="sm" variant="outline">
-                            Reply
-                          </Button>
-                        </form>
-                      </div>
+                      {!editingComment && (
+                        <div className="ml-11 mt-3">
+                          <form
+                            action={addCommentAction}
+                            className="flex gap-2"
+                          >
+                            <input
+                              type="hidden"
+                              name="session_id"
+                              value={sessionId}
+                            />
+                            <input
+                              type="hidden"
+                              name="parent_id"
+                              value={comment.id}
+                            />
+                            <input
+                              type="text"
+                              name="content"
+                              placeholder="Reply to this comment..."
+                              className="flex-grow text-sm px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              required
+                            />
+                            <Button type="submit" size="sm" variant="outline">
+                              Reply
+                            </Button>
+                          </form>
+                        </div>
+                      )}
                     </div>
                   ))}
               </div>

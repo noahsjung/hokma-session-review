@@ -14,6 +14,7 @@ export const signUpAction = async (formData: FormData) => {
     (formData
       .get("role")
       ?.toString() as Database["public"]["Enums"]["user_role"]) || "counselor";
+  console.log("Selected role during signup:", role);
   const supabase = await createClient();
   const origin = headers().get("origin");
 
@@ -44,8 +45,14 @@ export const signUpAction = async (formData: FormData) => {
   console.log("After signUp", error);
 
   if (error) {
-    console.error(error instanceof Error ? error.code + " " + error.message : error);
-    return encodedRedirect("error", "/sign-up", error instanceof Error ? error.message : "An unknown error occurred");
+    console.error(
+      error instanceof Error ? error.code + " " + error.message : error,
+    );
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 
   if (user) {
@@ -87,7 +94,11 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error instanceof Error ? error.message : "An unknown error occurred");
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 
   return redirect("/dashboard");
@@ -109,7 +120,11 @@ export const forgotPasswordAction = async (formData: FormData) => {
 
   if (error) {
     console.error(error instanceof Error ? error.message : error);
-    return encodedRedirect("error", "/forgot-password", "Failed to send reset password link");
+    return encodedRedirect(
+      "error",
+      "/forgot-password",
+      "Failed to send reset password link",
+    );
   }
 
   if (callbackUrl) {
@@ -250,7 +265,11 @@ export const createSessionAction = async (formData: FormData) => {
     return redirect(`/dashboard/sessions/${session.id}`);
   } catch (error) {
     console.error("Error in session creation:", error);
-    return encodedRedirect("error", "/dashboard/sessions/new", error instanceof Error ? error.message : "An unknown error occurred");
+    return encodedRedirect(
+      "error",
+      "/dashboard/sessions/new",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 };
 
@@ -300,12 +319,161 @@ export const addCommentAction = async (formData: FormData) => {
     });
 
     if (error) {
-      throw new Error(`Failed to add comment: ${error instanceof Error ? error.message : "Unknown error"}`);
+      throw new Error(
+        `Failed to add comment: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
 
-    return redirect(`/dashboard/sessions/${sessionId}`);
+    return encodedRedirect(
+      "success",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment added successfully",
+    );
   } catch (error) {
     console.error("Error adding comment:", error);
+    return encodedRedirect(
+      "error",
+      `/dashboard/sessions/${sessionId}`,
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+export const editCommentAction = async (formData: FormData) => {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      "You must be logged in to edit a comment",
+    );
+  }
+
+  const commentId = formData.get("comment_id") as string;
+  const sessionId = formData.get("session_id") as string;
+  const content = formData.get("content") as string;
+
+  if (!commentId || !sessionId || !content) {
+    return encodedRedirect(
+      "error",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment ID, session ID, and content are required",
+    );
+  }
+
+  try {
+    // First check if the user owns this comment
+    const { data: comment, error: fetchError } = await supabase
+      .from("comments")
+      .select("user_id")
+      .eq("id", commentId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (comment.user_id !== user.id) {
+      return encodedRedirect(
+        "error",
+        `/dashboard/sessions/${sessionId}`,
+        "You can only edit your own comments",
+      );
+    }
+
+    // Update the comment
+    const { error } = await supabase
+      .from("comments")
+      .update({ content, updated_at: new Date().toISOString() })
+      .eq("id", commentId);
+
+    if (error) {
+      throw new Error(`Failed to update comment: ${error.message}`);
+    }
+
+    return encodedRedirect(
+      "success",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment updated successfully",
+    );
+  } catch (error) {
+    console.error("Error editing comment:", error);
+    return encodedRedirect(
+      "error",
+      `/dashboard/sessions/${sessionId}`,
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+};
+
+export const deleteCommentAction = async (formData: FormData) => {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      "You must be logged in to delete a comment",
+    );
+  }
+
+  const commentId = formData.get("comment_id") as string;
+  const sessionId = formData.get("session_id") as string;
+
+  if (!commentId || !sessionId) {
+    return encodedRedirect(
+      "error",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment ID and session ID are required",
+    );
+  }
+
+  try {
+    // First check if the user owns this comment
+    const { data: comment, error: fetchError } = await supabase
+      .from("comments")
+      .select("user_id")
+      .eq("id", commentId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (comment.user_id !== user.id) {
+      return encodedRedirect(
+        "error",
+        `/dashboard/sessions/${sessionId}`,
+        "You can only delete your own comments",
+      );
+    }
+
+    // Delete the comment
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      throw new Error(`Failed to delete comment: ${error.message}`);
+    }
+
+    return encodedRedirect(
+      "success",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment deleted successfully",
+    );
+  } catch (error) {
+    console.error("Error deleting comment:", error);
     return encodedRedirect(
       "error",
       `/dashboard/sessions/${sessionId}`,

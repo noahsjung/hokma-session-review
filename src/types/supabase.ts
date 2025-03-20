@@ -254,7 +254,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_transcript: {
+        Args: {
+          session_id_param: string
+          full_text_param: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       user_role: "counselor" | "supervisor"
