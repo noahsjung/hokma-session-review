@@ -520,26 +520,29 @@ export default function SelectableTranscript({
                       >
                         <Edit size={14} />
                       </Button>
-                      <form action={deleteCommentAction}>
-                        <input
-                          type="hidden"
-                          name="comment_id"
-                          value={comment.id}
-                        />
-                        <input
-                          type="hidden"
-                          name="session_id"
-                          value={sessionId}
-                        />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <Trash size={14} />
-                        </Button>
-                      </form>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              "Are you sure you want to delete this comment?",
+                            )
+                          ) {
+                            const formData = new FormData();
+                            formData.append("comment_id", comment.id);
+                            formData.append("session_id", sessionId);
+                            deleteCommentAction(formData).then((result) => {
+                              if (result?.redirectUrl) {
+                                window.location.href = result.redirectUrl;
+                              }
+                            });
+                          }
+                        }}
+                      >
+                        <Trash size={14} />
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -725,33 +728,29 @@ export default function SelectableTranscript({
                         >
                           <Edit size={14} />
                         </Button>
-                        <form
-                          action={async (formData) => {
-                            const result = await deleteCommentAction(formData);
-                            if (result?.redirectUrl) {
-                              window.location.href = result.redirectUrl;
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                "Are you sure you want to delete this comment?",
+                              )
+                            ) {
+                              const formData = new FormData();
+                              formData.append("comment_id", comment.id);
+                              formData.append("session_id", sessionId);
+                              deleteCommentAction(formData).then((result) => {
+                                if (result?.redirectUrl) {
+                                  window.location.href = result.redirectUrl;
+                                }
+                              });
                             }
                           }}
                         >
-                          <input
-                            type="hidden"
-                            name="comment_id"
-                            value={comment.id}
-                          />
-                          <input
-                            type="hidden"
-                            name="session_id"
-                            value={sessionId}
-                          />
-                          <Button
-                            type="submit"
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <Trash size={14} />
-                          </Button>
-                        </form>
+                          <Trash size={14} />
+                        </Button>
                       </div>
                     )}
                   </div>

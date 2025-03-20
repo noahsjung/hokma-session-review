@@ -393,11 +393,12 @@ export default function ClientPage({
                                       {comment.user?.full_name}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {typeof window === "undefined"
-                                        ? ""
-                                        : new Date(
+                                      {typeof window !== "undefined" &&
+                                      comment.created_at
+                                        ? new Date(
                                             comment.created_at,
-                                          ).toLocaleString()}
+                                          ).toLocaleString()
+                                        : ""}
                                     </div>
                                   </div>
                                 </div>
@@ -416,35 +417,38 @@ export default function ClientPage({
                                       >
                                         <Edit size={14} />
                                       </Button>
-                                      <form
-                                        action={async (formData) => {
-                                          const result =
-                                            await deleteCommentAction(formData);
-                                          if (result?.redirectUrl) {
-                                            window.location.href =
-                                              result.redirectUrl;
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                        onClick={() => {
+                                          if (
+                                            window.confirm(
+                                              "Are you sure you want to delete this comment?",
+                                            )
+                                          ) {
+                                            const formData = new FormData();
+                                            formData.append(
+                                              "comment_id",
+                                              comment.id,
+                                            );
+                                            formData.append(
+                                              "session_id",
+                                              sessionId,
+                                            );
+                                            deleteCommentAction(formData).then(
+                                              (result) => {
+                                                if (result?.redirectUrl) {
+                                                  window.location.href =
+                                                    result.redirectUrl;
+                                                }
+                                              },
+                                            );
                                           }
                                         }}
                                       >
-                                        <input
-                                          type="hidden"
-                                          name="comment_id"
-                                          value={comment.id}
-                                        />
-                                        <input
-                                          type="hidden"
-                                          name="session_id"
-                                          value={sessionId}
-                                        />
-                                        <Button
-                                          type="submit"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                        >
-                                          <Trash size={14} />
-                                        </Button>
-                                      </form>
+                                        <Trash size={14} />
+                                      </Button>
                                     </div>
                                   )}
                               </div>
@@ -624,55 +628,52 @@ export default function ClientPage({
                               {comment.user.full_name}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {typeof window === "undefined"
-                                ? ""
-                                : new Date(comment.created_at).toLocaleString()}
+                              {typeof window !== "undefined" &&
+                              comment.created_at
+                                ? new Date(comment.created_at).toLocaleString()
+                                : ""}
                             </div>
                           </div>
                         </div>
 
-                        {userRole === "supervisor" &&
-                          comment.user.id === userId &&
-                          !editingComment && (
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => handleEditComment(comment)}
-                              >
-                                <Edit size={14} />
-                              </Button>
-                              <form
-                                action={async (formData) => {
-                                  const result =
-                                    await deleteCommentAction(formData);
-                                  if (result?.redirectUrl) {
-                                    window.location.href = result.redirectUrl;
-                                  }
-                                }}
-                              >
-                                <input
-                                  type="hidden"
-                                  name="comment_id"
-                                  value={comment.id}
-                                />
-                                <input
-                                  type="hidden"
-                                  name="session_id"
-                                  value={sessionId}
-                                />
-                                <Button
-                                  type="submit"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                                >
-                                  <Trash size={14} />
-                                </Button>
-                              </form>
-                            </div>
-                          )}
+                        {comment.user?.id === userId && !editingComment && (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleEditComment(comment)}
+                            >
+                              <Edit size={14} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    "Are you sure you want to delete this comment?",
+                                  )
+                                ) {
+                                  const formData = new FormData();
+                                  formData.append("comment_id", comment.id);
+                                  formData.append("session_id", sessionId);
+                                  deleteCommentAction(formData).then(
+                                    (result) => {
+                                      if (result?.redirectUrl) {
+                                        window.location.href =
+                                          result.redirectUrl;
+                                      }
+                                    },
+                                  );
+                                }
+                              }}
+                            >
+                              <Trash size={14} />
+                            </Button>
+                          </div>
+                        )}
                       </div>
 
                       {comment.start_time && comment.end_time && (
@@ -812,65 +813,185 @@ export default function ClientPage({
                                       {reply.users?.full_name}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      {typeof window === "undefined"
-                                        ? ""
-                                        : new Date(
+                                      {typeof window !== "undefined" &&
+                                      reply.created_at
+                                        ? new Date(
                                             reply.created_at,
-                                          ).toLocaleString()}
+                                          ).toLocaleString()
+                                        : ""}
                                     </div>
                                   </div>
                                 </div>
 
-                                {userRole === "supervisor" &&
-                                  reply.user_id === userId && (
-                                    <div className="flex gap-1">
-                                      <form
-                                        action={async (formData) => {
-                                          const result =
-                                            await deleteCommentAction(formData);
-                                          if (result?.redirectUrl) {
-                                            window.location.href =
-                                              result.redirectUrl;
-                                          }
-                                        }}
-                                      >
-                                        <input
-                                          type="hidden"
-                                          name="comment_id"
-                                          value={reply.id}
-                                        />
-                                        <input
-                                          type="hidden"
-                                          name="session_id"
-                                          value={sessionId}
-                                        />
-                                        <Button
-                                          type="submit"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-5 w-5 p-0 text-red-500 hover:text-red-700"
-                                        >
-                                          <Trash size={12} />
-                                        </Button>
-                                      </form>
-                                    </div>
-                                  )}
+                                {reply.user_id === userId && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 w-5 p-0"
+                                      onClick={() => {
+                                        setEditingComment(reply.id);
+                                        setEditContent(reply.content);
+                                        setEditingAudioComment(
+                                          reply.has_audio ? reply.id : null,
+                                        );
+                                      }}
+                                    >
+                                      <Edit size={12} />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-5 w-5 p-0 text-red-500 hover:text-red-700"
+                                      onClick={() => {
+                                        if (
+                                          window.confirm(
+                                            "Are you sure you want to delete this reply?",
+                                          )
+                                        ) {
+                                          const formData = new FormData();
+                                          formData.append(
+                                            "comment_id",
+                                            reply.id,
+                                          );
+                                          formData.append(
+                                            "session_id",
+                                            sessionId,
+                                          );
+                                          deleteCommentAction(formData).then(
+                                            (result) => {
+                                              if (result?.redirectUrl) {
+                                                window.location.href =
+                                                  result.redirectUrl;
+                                              }
+                                            },
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Trash size={12} />
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                               <div className="ml-8">
-                                {reply.has_audio ? (
-                                  <div className="space-y-2">
-                                    <div className="text-xs text-gray-600 flex items-center gap-1">
-                                      <Volume2 size={12} />
-                                      <span>Audio Reply</span>
-                                    </div>
-                                    <AudioFeedbackPlayer
-                                      audioUrl={reply.audio_url || ""}
+                                {editingComment === reply.id ? (
+                                  <form
+                                    action={async (formData) => {
+                                      if (
+                                        reply.has_audio &&
+                                        audioFeedbackBlob
+                                      ) {
+                                        formData.append(
+                                          "audio_feedback",
+                                          audioFeedbackBlob,
+                                        );
+                                        formData.append(
+                                          "has_audio_feedback",
+                                          "true",
+                                        );
+                                      }
+                                      const result =
+                                        await editCommentAction(formData);
+                                      if (result?.redirectUrl) {
+                                        window.location.href =
+                                          result.redirectUrl;
+                                      }
+                                    }}
+                                    className="space-y-3"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="comment_id"
+                                      value={reply.id}
                                     />
-                                  </div>
+                                    <input
+                                      type="hidden"
+                                      name="session_id"
+                                      value={sessionId}
+                                    />
+
+                                    {reply.has_audio ? (
+                                      <div className="space-y-3">
+                                        <div className="text-sm text-gray-600">
+                                          Re-record your audio feedback:
+                                        </div>
+                                        <AudioRecorder
+                                          onRecordingComplete={(blob) =>
+                                            setAudioFeedbackBlob(blob)
+                                          }
+                                          initialAudioUrl={
+                                            reply.audio_url || undefined
+                                          }
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="content"
+                                          value="[Audio Reply]"
+                                        />
+                                        <div className="flex justify-end gap-2 mt-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelEdit}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={!audioFeedbackBlob}
+                                          >
+                                            Save
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <textarea
+                                          name="content"
+                                          value={editContent}
+                                          onChange={(e) =>
+                                            setEditContent(e.target.value)
+                                          }
+                                          className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          required
+                                        ></textarea>
+                                        <div className="flex justify-end gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelEdit}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button type="submit" size="sm">
+                                            Save
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </form>
                                 ) : (
-                                  <div className="text-sm text-gray-800">
-                                    {reply.content}
-                                  </div>
+                                  <>
+                                    {reply.has_audio ? (
+                                      <div className="space-y-2">
+                                        <div className="text-xs text-gray-600 flex items-center gap-1">
+                                          <Volume2 size={12} />
+                                          <span>Audio Reply</span>
+                                        </div>
+                                        <AudioFeedbackPlayer
+                                          audioUrl={reply.audio_url || ""}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="text-sm text-gray-800">
+                                        {reply.content}
+                                      </div>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>

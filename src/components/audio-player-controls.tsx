@@ -7,6 +7,7 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
+  VolumeX,
   Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ export default function AudioPlayerControls({
   const [isPlayingState, setIsPlayingState] = useState(isPlaying);
   const [currentTime, setCurrentTime] = useState(externalCurrentTime || 0);
   const [volume, setVolume] = useState(0.7);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(0.7);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const playerRef = useRef<HTMLDivElement>(null);
 
@@ -133,7 +136,25 @@ export default function AudioPlayerControls({
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(parseFloat(e.target.value));
+    const newVolume = parseFloat(e.target.value);
+    setVolume(newVolume);
+    if (newVolume > 0 && isMuted) {
+      setIsMuted(false);
+    } else if (newVolume === 0 && !isMuted) {
+      setIsMuted(true);
+    }
+    setPreviousVolume(newVolume > 0 ? newVolume : previousVolume);
+  };
+
+  const toggleMute = () => {
+    if (isMuted) {
+      setVolume(previousVolume);
+      setIsMuted(false);
+    } else {
+      setPreviousVolume(volume);
+      setVolume(0);
+      setIsMuted(true);
+    }
   };
 
   const handleSpeedChange = (speed: number) => {
@@ -205,7 +226,13 @@ export default function AudioPlayerControls({
 
           {/* Volume control */}
           <div className="flex items-center gap-2">
-            <Volume2 size={16} className="text-gray-500" />
+            <button
+              onClick={toggleMute}
+              className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
             <input
               type="range"
               min="0"

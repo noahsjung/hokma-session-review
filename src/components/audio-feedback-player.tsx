@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Volume2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX } from "lucide-react";
 import { createClient } from "../../supabase/client";
 
 interface AudioFeedbackPlayerProps {
@@ -16,6 +16,8 @@ export default function AudioFeedbackPlayer({
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [volume, setVolume] = useState(0.7);
+  const [isMuted, setIsMuted] = useState(false);
+  const [previousVolume, setPreviousVolume] = useState(0.7);
   const [publicUrl, setPublicUrl] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -66,7 +68,7 @@ export default function AudioFeedbackPlayer({
         }
       });
 
-      audio.volume = volume;
+      audio.volume = isMuted ? 0 : volume;
 
       return () => {
         audio.pause();
@@ -74,7 +76,7 @@ export default function AudioFeedbackPlayer({
         audio.removeEventListener("ended", () => {});
       };
     }
-  }, [publicUrl, volume]);
+  }, [publicUrl, volume, isMuted]);
 
   const togglePlayPause = () => {
     if (!audioRef.current) return;
@@ -105,6 +107,36 @@ export default function AudioFeedbackPlayer({
     if (audioRef.current) {
       audioRef.current.volume = newVolume;
     }
+    if (newVolume > 0 && isMuted) {
+      setIsMuted(false);
+    } else if (newVolume === 0 && !isMuted) {
+      setIsMuted(true);
+    }
+    setPreviousVolume(newVolume > 0 ? newVolume : previousVolume);
+  };
+
+  const toggleMute = () => {
+    if (isMuted) {
+      setVolume(previousVolume);
+      if (audioRef.current) {
+        audioRef.current.volume = previousVolume;
+      }
+      setIsMuted(false);
+    } else {
+      setPreviousVolume(volume);
+      if (audioRef.current) {
+        audioRef.current.volume = 0;
+      }
+      setIsMuted(true);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seekTime = parseFloat(e.target.value);
+    setCurrentTime(seekTime);
+    if (audioRef.current) {
+      audioRef.current.currentTime = seekTime;
+    }
   };
 
   const formatTime = (time: number) => {
@@ -133,28 +165,40 @@ export default function AudioFeedbackPlayer({
         </Button>
 
         <div className="flex items-center gap-2">
-          <Volume2 size={16} className="text-gray-500" />
+          <button
+            onClick={toggleMute}
+            className="text-gray-500 hover:text-gray-700 focus:outline-none"
+            aria-label={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+          </button>
           <input
             type="range"
             min="0"
             max="1"
             step="0.01"
-            value={volume}
+            value={isMuted ? 0 : volume}
             onChange={handleVolumeChange}
             className="w-16 h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
             style={{
-              background: `linear-gradient(to right, #6b7280 ${volume * 100}%, #e5e7eb ${volume * 100}%)`,
+              background: `linear-gradient(to right, #6b7280 ${(isMuted ? 0 : volume) * 100}%, #e5e7eb ${(isMuted ? 0 : volume) * 100}%)`,
             }}
           />
         </div>
       </div>
 
-      <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-        <div
-          className="bg-blue-600 h-1.5 rounded-full"
-          style={{ width: `${(currentTime / duration) * 100}%` }}
-        ></div>
-      </div>
+      <input
+        type="range"
+        min="0"
+        max={duration || 0}
+        step="0.01"
+        value={currentTime}
+        onChange={handleSeek}
+        className="w-full h-1.5 bg-gray-200 rounded-full appearance-none cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #e5e7eb ${(currentTime / (duration || 1)) * 100}%)`,
+        }}
+      />
 
       <div className="flex justify-between text-xs text-gray-500">
         <span>{formatTime(currentTime)}</span>

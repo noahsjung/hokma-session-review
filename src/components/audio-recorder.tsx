@@ -85,7 +85,8 @@ export default function AudioRecorder({
         stream.getTracks().forEach((track) => track.stop());
       };
 
-      mediaRecorderRef.current.start();
+      // Set up data collection every second to ensure we capture audio continuously
+      mediaRecorderRef.current.start(1000);
       setIsRecording(true);
     } catch (error) {
       console.error("Error starting recording:", error);
