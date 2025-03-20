@@ -122,10 +122,8 @@ export default function ClientPage({
                   <UserCircle size={16} />
                   <span>{session.counselor.full_name}</span>
                 </div>
-                <div>
-                  {typeof window === "undefined"
-                    ? ""
-                    : new Date(session.session_date).toLocaleDateString()}
+                <div suppressHydrationWarning>
+                  {new Date(session.session_date).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-1">
                   <FileAudio size={16} />
@@ -392,9 +390,11 @@ export default function ClientPage({
                                     <div className="font-medium">
                                       {comment.user?.full_name}
                                     </div>
-                                    <div className="text-xs text-gray-500">
-                                      {typeof window !== "undefined" &&
-                                      comment.created_at
+                                    <div
+                                      className="text-xs text-gray-500"
+                                      suppressHydrationWarning
+                                    >
+                                      {comment.created_at
                                         ? new Date(
                                             comment.created_at,
                                           ).toLocaleString()
@@ -627,9 +627,11 @@ export default function ClientPage({
                             <div className="font-medium">
                               {comment.user.full_name}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {typeof window !== "undefined" &&
-                              comment.created_at
+                            <div
+                              className="text-xs text-gray-500"
+                              suppressHydrationWarning
+                            >
+                              {comment.created_at
                                 ? new Date(comment.created_at).toLocaleString()
                                 : ""}
                             </div>
@@ -812,9 +814,11 @@ export default function ClientPage({
                                     <div className="text-sm font-medium">
                                       {reply.users?.full_name}
                                     </div>
-                                    <div className="text-xs text-gray-500">
-                                      {typeof window !== "undefined" &&
-                                      reply.created_at
+                                    <div
+                                      className="text-xs text-gray-500"
+                                      suppressHydrationWarning
+                                    >
+                                      {reply.created_at
                                         ? new Date(
                                             reply.created_at,
                                           ).toLocaleString()

@@ -125,6 +125,13 @@ export default async function Dashboard() {
                   </Link>
                 )}
 
+              <Link href="/dashboard/sessions/dummy">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileAudio className="h-4 w-4" />
+                  Create Dummy Session
+                </Button>
+              </Link>
+
               <Link href="/dashboard/analytics">
                 <Button variant="outline" className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4" />
