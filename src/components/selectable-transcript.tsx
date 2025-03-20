@@ -2,7 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Edit, Trash, X } from "lucide-react";
+import { MessageSquare, Edit, Trash, X, Mic, Volume2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AudioRecorder from "@/components/audio-recorder";
+import AudioFeedbackPlayer from "@/components/audio-feedback-player";
 import {
   addCommentAction,
   editCommentAction,
@@ -27,6 +30,8 @@ interface Comment {
   start_time?: number;
   end_time?: number;
   segment_id?: string;
+  has_audio?: boolean;
+  audio_url?: string;
   user?: {
     id: string;
     full_name: string;
@@ -60,6 +65,8 @@ export default function SelectableTranscript({
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
+  const [commentType, setCommentType] = useState<"text" | "audio">("text");
+  const [audioFeedbackBlob, setAudioFeedbackBlob] = useState<Blob | null>(null);
   const segmentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const textRefs = useRef<{ [key: string]: HTMLParagraphElement | null }>({});
 
@@ -209,6 +216,8 @@ export default function SelectableTranscript({
     setSelectedSegment(null);
     setSelectedText("");
     setSelectionRange(null);
+    setAudioFeedbackBlob(null);
+    setCommentType("text");
   };
 
   const handleEditComment = (comment: Comment) => {
@@ -219,6 +228,7 @@ export default function SelectableTranscript({
   const handleCancelEdit = () => {
     setEditingComment(null);
     setEditContent("");
+    setAudioFeedbackBlob(null);
   };
 
   const formatTimestamp = (seconds: number): string => {
@@ -259,9 +269,15 @@ export default function SelectableTranscript({
             <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
               <form
                 action={async (formData) => {
+                  if (audioFeedbackBlob) {
+                    formData.append("audio_feedback", audioFeedbackBlob);
+                    formData.append("has_audio_feedback", "true");
+                  }
                   const result = await addCommentAction(formData);
                   if (result?.redirectUrl) {
                     setShowCommentForm(false);
+                    setAudioFeedbackBlob(null);
+                    setCommentType("text");
                     window.location.href = result.redirectUrl;
                   }
                 }}
@@ -297,13 +313,51 @@ export default function SelectableTranscript({
                     "Add comment to transcript"
                   )}
                 </div>
-                <textarea
-                  name="content"
-                  placeholder="Add your feedback here..."
-                  className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                  autoFocus
-                ></textarea>
+
+                <Tabs
+                  defaultValue="text"
+                  className="w-full"
+                  onValueChange={(value) =>
+                    setCommentType(value as "text" | "audio")
+                  }
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger
+                      value="text"
+                      className="flex items-center gap-2"
+                    >
+                      <MessageSquare size={16} />
+                      Text Feedback
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="audio"
+                      className="flex items-center gap-2"
+                    >
+                      <Mic size={16} />
+                      Audio Feedback
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="text" className="mt-4">
+                    <textarea
+                      name="content"
+                      placeholder="Add your feedback here..."
+                      className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={commentType === "text"}
+                      autoFocus
+                    ></textarea>
+                  </TabsContent>
+                  <TabsContent value="audio" className="mt-4">
+                    <AudioRecorder
+                      onRecordingComplete={(blob) => setAudioFeedbackBlob(blob)}
+                    />
+                    <input
+                      type="hidden"
+                      name="content"
+                      value={commentType === "audio" ? "[Audio Feedback]" : ""}
+                    />
+                  </TabsContent>
+                </Tabs>
+
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
@@ -313,7 +367,11 @@ export default function SelectableTranscript({
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" size="sm">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={commentType === "audio" && !audioFeedbackBlob}
+                  >
                     Add Comment
                   </Button>
                 </div>
@@ -346,7 +404,22 @@ export default function SelectableTranscript({
                       )}
 
                       {editingComment === comment.id ? (
-                        <form action={editCommentAction} className="mt-1">
+                        <form
+                          action={async (formData) => {
+                            if (comment.has_audio && audioFeedbackBlob) {
+                              formData.append(
+                                "audio_feedback",
+                                audioFeedbackBlob,
+                              );
+                              formData.append("has_audio_feedback", "true");
+                            }
+                            const result = await editCommentAction(formData);
+                            if (result?.redirectUrl) {
+                              window.location.href = result.redirectUrl;
+                            }
+                          }}
+                          className="mt-1"
+                        >
                           <input
                             type="hidden"
                             name="comment_id"
@@ -357,29 +430,82 @@ export default function SelectableTranscript({
                             name="session_id"
                             value={sessionId}
                           />
-                          <textarea
-                            name="content"
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            required
-                          ></textarea>
-                          <div className="flex justify-end gap-2 mt-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleCancelEdit}
-                            >
-                              Cancel
-                            </Button>
-                            <Button type="submit" size="sm">
-                              Save
-                            </Button>
-                          </div>
+
+                          {comment.has_audio ? (
+                            <div className="space-y-3">
+                              <div className="text-sm text-gray-600">
+                                Re-record your audio feedback:
+                              </div>
+                              <AudioRecorder
+                                onRecordingComplete={(blob) =>
+                                  setAudioFeedbackBlob(blob)
+                                }
+                                initialAudioUrl={comment.audio_url || undefined}
+                              />
+                              <input
+                                type="hidden"
+                                name="content"
+                                value="[Audio Feedback]"
+                              />
+                              <div className="flex justify-end gap-2 mt-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  disabled={!audioFeedbackBlob}
+                                >
+                                  Save
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <textarea
+                                name="content"
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                required
+                              ></textarea>
+                              <div className="flex justify-end gap-2 mt-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button type="submit" size="sm">
+                                  Save
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </form>
                       ) : (
-                        <div className="text-sm">{comment.content}</div>
+                        <div className="ml-0">
+                          {comment.has_audio ? (
+                            <div className="space-y-2">
+                              <div className="text-sm text-gray-600 flex items-center gap-1">
+                                <Volume2 size={14} />
+                                <span>Audio Feedback</span>
+                              </div>
+                              <AudioFeedbackPlayer
+                                audioUrl={comment.audio_url || ""}
+                              />
+                            </div>
+                          ) : (
+                            <div className="text-sm">{comment.content}</div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -481,6 +607,13 @@ export default function SelectableTranscript({
                         {editingComment === comment.id ? (
                           <form
                             action={async (formData) => {
+                              if (comment.has_audio && audioFeedbackBlob) {
+                                formData.append(
+                                  "audio_feedback",
+                                  audioFeedbackBlob,
+                                );
+                                formData.append("has_audio_feedback", "true");
+                              }
                               const result = await editCommentAction(formData);
                               if (result?.redirectUrl) {
                                 window.location.href = result.redirectUrl;
@@ -498,29 +631,86 @@ export default function SelectableTranscript({
                               name="session_id"
                               value={sessionId}
                             />
-                            <textarea
-                              name="content"
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              required
-                            ></textarea>
-                            <div className="flex justify-end gap-2 mt-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleCancelEdit}
-                              >
-                                Cancel
-                              </Button>
-                              <Button type="submit" size="sm">
-                                Save
-                              </Button>
-                            </div>
+
+                            {comment.has_audio ? (
+                              <div className="space-y-3">
+                                <div className="text-sm text-gray-600">
+                                  Re-record your audio feedback:
+                                </div>
+                                <AudioRecorder
+                                  onRecordingComplete={(blob) =>
+                                    setAudioFeedbackBlob(blob)
+                                  }
+                                  initialAudioUrl={
+                                    comment.audio_url || undefined
+                                  }
+                                />
+                                <input
+                                  type="hidden"
+                                  name="content"
+                                  value="[Audio Feedback]"
+                                />
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={!audioFeedbackBlob}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <textarea
+                                  name="content"
+                                  value={editContent}
+                                  onChange={(e) =>
+                                    setEditContent(e.target.value)
+                                  }
+                                  className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  required
+                                ></textarea>
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" size="sm">
+                                    Save
+                                  </Button>
+                                </div>
+                              </>
+                            )}
                           </form>
                         ) : (
-                          <div className="text-sm">{comment.content}</div>
+                          <div className="ml-0">
+                            {comment.has_audio ? (
+                              <div className="space-y-2">
+                                <div className="text-sm text-gray-600 flex items-center gap-1">
+                                  <Volume2 size={14} />
+                                  <span>Audio Feedback</span>
+                                </div>
+                                <AudioFeedbackPlayer
+                                  audioUrl={comment.audio_url || ""}
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-sm">{comment.content}</div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -576,9 +766,15 @@ export default function SelectableTranscript({
                 >
                   <form
                     action={async (formData) => {
+                      if (audioFeedbackBlob) {
+                        formData.append("audio_feedback", audioFeedbackBlob);
+                        formData.append("has_audio_feedback", "true");
+                      }
                       const result = await addCommentAction(formData);
                       if (result?.redirectUrl) {
                         setShowCommentForm(false);
+                        setAudioFeedbackBlob(null);
+                        setCommentType("text");
                         window.location.href = result.redirectUrl;
                       }
                     }}
@@ -614,13 +810,55 @@ export default function SelectableTranscript({
                         "Add comment to this segment"
                       )}
                     </div>
-                    <textarea
-                      name="content"
-                      placeholder="Add your feedback here..."
-                      className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                      autoFocus
-                    ></textarea>
+
+                    <Tabs
+                      defaultValue="text"
+                      className="w-full"
+                      onValueChange={(value) =>
+                        setCommentType(value as "text" | "audio")
+                      }
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger
+                          value="text"
+                          className="flex items-center gap-2"
+                        >
+                          <MessageSquare size={16} />
+                          Text Feedback
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="audio"
+                          className="flex items-center gap-2"
+                        >
+                          <Mic size={16} />
+                          Audio Feedback
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="text" className="mt-4">
+                        <textarea
+                          name="content"
+                          placeholder="Add your feedback here..."
+                          className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required={commentType === "text"}
+                          autoFocus
+                        ></textarea>
+                      </TabsContent>
+                      <TabsContent value="audio" className="mt-4">
+                        <AudioRecorder
+                          onRecordingComplete={(blob) =>
+                            setAudioFeedbackBlob(blob)
+                          }
+                        />
+                        <input
+                          type="hidden"
+                          name="content"
+                          value={
+                            commentType === "audio" ? "[Audio Feedback]" : ""
+                          }
+                        />
+                      </TabsContent>
+                    </Tabs>
+
                     <div className="flex justify-end gap-2">
                       <Button
                         type="button"
@@ -630,7 +868,11 @@ export default function SelectableTranscript({
                       >
                         Cancel
                       </Button>
-                      <Button type="submit" size="sm">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={commentType === "audio" && !audioFeedbackBlob}
+                      >
                         Add Comment
                       </Button>
                     </div>

@@ -9,8 +9,21 @@ import {
 } from "@/app/actions";
 import MarkAsReviewedButton from "@/components/mark-as-reviewed-button";
 import AudioPlayerControls from "@/components/audio-player-controls";
-import { FileAudio, User, UserCircle, Edit, Trash } from "lucide-react";
+import {
+  FileAudio,
+  User,
+  UserCircle,
+  Edit,
+  Trash,
+  MessageSquare,
+  Clock,
+  Mic,
+  Volume2,
+} from "lucide-react";
 import SelectableTranscript from "@/components/selectable-transcript";
+import AudioRecorder from "@/components/audio-recorder";
+import AudioFeedbackPlayer from "@/components/audio-feedback-player";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ClientPageProps {
   sessionId: string;
@@ -30,6 +43,8 @@ interface Reply {
     id: string;
     full_name: string;
   };
+  has_audio?: boolean;
+  audio_url?: string;
 }
 
 export default function ClientPage({
@@ -44,8 +59,18 @@ export default function ClientPage({
   const [showFixedPlayer, setShowFixedPlayer] = useState(false);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [showTimestampCommentForm, setShowTimestampCommentForm] =
+    useState(false);
+  const [commentType, setCommentType] = useState<"text" | "audio">("text");
+  const [audioFeedbackBlob, setAudioFeedbackBlob] = useState<Blob | null>(null);
+  const [editingAudioComment, setEditingAudioComment] = useState<string | null>(
+    null,
+  );
   const mainContentRef = useRef<HTMLDivElement>(null);
   const userId = session?.counselor?.id || "";
+  const hasAudio = true; // Force audio player to show for debugging
+  console.log("Session recording URL:", session.recording_url);
+  const hasTranscript = transcript && segments && segments.length > 0;
 
   // Handle scroll to determine when to show fixed player
   useEffect(() => {
@@ -64,6 +89,14 @@ export default function ClientPage({
   const handleSeek = (time: number) => {
     setCurrentTime(time);
     // In a real implementation, this would control the actual audio playback
+  };
+
+  const handleAddTimestampComment = () => {
+    setShowTimestampCommentForm(true);
+  };
+
+  const handleCancelTimestampComment = () => {
+    setShowTimestampCommentForm(false);
   };
 
   const handleEditComment = (comment: any) => {
@@ -121,11 +154,11 @@ export default function ClientPage({
         >
           {/* Audio Player and Transcript */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Transcript with selectable text */}
+            {/* Transcript with selectable text or Audio Timeline */}
             <div className="bg-white rounded-xl p-6 border shadow-sm">
               <h2 className="text-xl font-semibold mb-4">Transcript</h2>
 
-              {segments && segments.length > 0 ? (
+              {hasTranscript ? (
                 <>
                   <p className="mb-4 text-sm text-gray-500">
                     {segments.length} segments found
@@ -149,9 +182,415 @@ export default function ClientPage({
                     Transcription in progress...
                   </p>
                 </div>
+              ) : hasAudio ? (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-500">
+                      <p>No transcript available for this session.</p>
+                      <p className="text-sm mt-1">
+                        You can still leave feedback at specific timestamps.
+                      </p>
+                    </div>
+                    {userRole === "supervisor" && !showTimestampCommentForm && (
+                      <Button
+                        onClick={handleAddTimestampComment}
+                        className="flex items-center gap-2"
+                      >
+                        <MessageSquare size={16} />
+                        <span>Comment at {formatTimestamp(currentTime)}</span>
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Audio Timeline Visualization */}
+                  <div className="mt-6 pt-6 border-t">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock size={16} className="text-gray-500" />
+                      <span className="text-sm font-medium">
+                        Audio Timeline
+                      </span>
+                    </div>
+                    <div className="relative h-12 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="absolute top-0 left-0 h-full bg-blue-200"
+                        style={{
+                          width: `${(currentTime / (session.duration || 3600)) * 100}%`,
+                        }}
+                      ></div>
+                      <div
+                        className="absolute top-0 w-1 h-full bg-blue-600"
+                        style={{
+                          left: `${(currentTime / (session.duration || 3600)) * 100}%`,
+                        }}
+                      ></div>
+
+                      {/* Display timestamp comments on timeline */}
+                      {comments
+                        .filter((c) => c.start_time && !c.segment_id)
+                        .map((comment) => (
+                          <div
+                            key={comment.id}
+                            className="absolute top-0 w-1 h-full bg-red-500 cursor-pointer hover:bg-red-600"
+                            style={{
+                              left: `${(comment.start_time / (session.duration || 3600)) * 100}%`,
+                            }}
+                            title={`Comment at ${formatTimestamp(comment.start_time)}`}
+                          ></div>
+                        ))}
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>0:00</span>
+                      <span>{formatTimestamp(session.duration || 3600)}</span>
+                    </div>
+                  </div>
+
+                  {/* Timestamp Comment Form */}
+                  {showTimestampCommentForm && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <form
+                        action={async (formData) => {
+                          if (audioFeedbackBlob) {
+                            formData.append(
+                              "audio_feedback",
+                              audioFeedbackBlob,
+                            );
+                          }
+                          const result = await addCommentAction(formData);
+                          if (result?.redirectUrl) {
+                            setShowTimestampCommentForm(false);
+                            setAudioFeedbackBlob(null);
+                            setCommentType("text");
+                            window.location.href = result.redirectUrl;
+                          }
+                        }}
+                        className="space-y-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="session_id"
+                          value={sessionId}
+                        />
+                        <input
+                          type="hidden"
+                          name="start_time"
+                          value={currentTime}
+                        />
+                        <input
+                          type="hidden"
+                          name="end_time"
+                          value={currentTime + 5}
+                        />
+                        {audioFeedbackBlob && (
+                          <input
+                            type="hidden"
+                            name="has_audio_feedback"
+                            value="true"
+                          />
+                        )}
+
+                        <div className="flex items-center gap-2 text-sm text-blue-700">
+                          <Clock size={16} />
+                          <span>
+                            Adding comment at timestamp:{" "}
+                            {formatTimestamp(currentTime)}
+                          </span>
+                        </div>
+
+                        <Tabs
+                          defaultValue="text"
+                          className="w-full"
+                          onValueChange={(value) =>
+                            setCommentType(value as "text" | "audio")
+                          }
+                        >
+                          <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger
+                              value="text"
+                              className="flex items-center gap-2"
+                            >
+                              <MessageSquare size={16} />
+                              Text Feedback
+                            </TabsTrigger>
+                            <TabsTrigger
+                              value="audio"
+                              className="flex items-center gap-2"
+                            >
+                              <Mic size={16} />
+                              Audio Feedback
+                            </TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="text" className="mt-4">
+                            <textarea
+                              name="content"
+                              placeholder="Add your feedback for this timestamp..."
+                              className="w-full p-3 border rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              required={commentType === "text"}
+                              autoFocus
+                            ></textarea>
+                          </TabsContent>
+                          <TabsContent value="audio" className="mt-4">
+                            <AudioRecorder
+                              onRecordingComplete={(blob) =>
+                                setAudioFeedbackBlob(blob)
+                              }
+                            />
+                            <input
+                              type="hidden"
+                              name="content"
+                              value={
+                                commentType === "audio"
+                                  ? "[Audio Feedback]"
+                                  : ""
+                              }
+                            />
+                          </TabsContent>
+                        </Tabs>
+
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleCancelTimestampComment}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={
+                              commentType === "audio" && !audioFeedbackBlob
+                            }
+                          >
+                            Add Comment
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Display Timestamp Comments */}
+                  <div className="mt-6 space-y-4">
+                    <h3 className="text-lg font-medium">Timestamp Comments</h3>
+                    {comments.filter((c) => !c.segment_id && c.start_time)
+                      .length > 0 ? (
+                      <div className="space-y-4">
+                        {comments
+                          .filter((c) => !c.segment_id && c.start_time)
+                          .sort(
+                            (a, b) => (a.start_time || 0) - (b.start_time || 0),
+                          )
+                          .map((comment) => (
+                            <div
+                              key={comment.id}
+                              className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                            >
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex items-start gap-3">
+                                  <div className="bg-blue-100 rounded-full w-8 h-8 flex items-center justify-center">
+                                    <User size={16} className="text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">
+                                      {comment.user?.full_name}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                      {typeof window === "undefined"
+                                        ? ""
+                                        : new Date(
+                                            comment.created_at,
+                                          ).toLocaleString()}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {userRole === "supervisor" &&
+                                  comment.user?.id === userId &&
+                                  !editingComment && (
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0"
+                                        onClick={() =>
+                                          handleEditComment(comment)
+                                        }
+                                      >
+                                        <Edit size={14} />
+                                      </Button>
+                                      <form
+                                        action={async (formData) => {
+                                          const result =
+                                            await deleteCommentAction(formData);
+                                          if (result?.redirectUrl) {
+                                            window.location.href =
+                                              result.redirectUrl;
+                                          }
+                                        }}
+                                      >
+                                        <input
+                                          type="hidden"
+                                          name="comment_id"
+                                          value={comment.id}
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="session_id"
+                                          value={sessionId}
+                                        />
+                                        <Button
+                                          type="submit"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                        >
+                                          <Trash size={14} />
+                                        </Button>
+                                      </form>
+                                    </div>
+                                  )}
+                              </div>
+
+                              <div className="ml-11 mb-2 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded inline-block">
+                                Timestamp:{" "}
+                                {formatTimestamp(comment.start_time || 0)}
+                              </div>
+
+                              {editingComment === comment.id ? (
+                                <div className="ml-11">
+                                  <form
+                                    action={async (formData) => {
+                                      if (
+                                        comment.has_audio &&
+                                        audioFeedbackBlob
+                                      ) {
+                                        formData.append(
+                                          "audio_feedback",
+                                          audioFeedbackBlob,
+                                        );
+                                        formData.append(
+                                          "has_audio_feedback",
+                                          "true",
+                                        );
+                                      }
+                                      const result =
+                                        await editCommentAction(formData);
+                                      if (result?.redirectUrl) {
+                                        window.location.href =
+                                          result.redirectUrl;
+                                      }
+                                    }}
+                                    className="space-y-3"
+                                  >
+                                    <input
+                                      type="hidden"
+                                      name="comment_id"
+                                      value={comment.id}
+                                    />
+                                    <input
+                                      type="hidden"
+                                      name="session_id"
+                                      value={sessionId}
+                                    />
+
+                                    {comment.has_audio ? (
+                                      <div className="space-y-3">
+                                        <div className="text-sm text-gray-600">
+                                          Re-record your audio feedback:
+                                        </div>
+                                        <AudioRecorder
+                                          onRecordingComplete={(blob) =>
+                                            setAudioFeedbackBlob(blob)
+                                          }
+                                          initialAudioUrl={
+                                            comment.audio_url || undefined
+                                          }
+                                        />
+                                        <input
+                                          type="hidden"
+                                          name="content"
+                                          value="[Audio Feedback]"
+                                        />
+                                        <div className="flex justify-end gap-2 mt-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelEdit}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button
+                                            type="submit"
+                                            size="sm"
+                                            disabled={!audioFeedbackBlob}
+                                          >
+                                            Save
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <textarea
+                                          name="content"
+                                          value={editContent}
+                                          onChange={(e) =>
+                                            setEditContent(e.target.value)
+                                          }
+                                          className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          required
+                                        ></textarea>
+                                        <div className="flex justify-end gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleCancelEdit}
+                                          >
+                                            Cancel
+                                          </Button>
+                                          <Button type="submit" size="sm">
+                                            Save
+                                          </Button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </form>
+                                </div>
+                              ) : (
+                                <div className="ml-11">
+                                  {comment.has_audio ? (
+                                    <div className="space-y-2">
+                                      <div className="text-sm text-gray-600 flex items-center gap-1">
+                                        <Volume2 size={14} />
+                                        <span>Audio Feedback</span>
+                                      </div>
+                                      <AudioFeedbackPlayer
+                                        audioUrl={comment.audio_url || ""}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="text-gray-800">
+                                      {comment.content}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
+                        <p>No timestamp comments yet.</p>
+                        <p className="text-sm mt-1">
+                          Use the button above to add a comment at the current
+                          timestamp.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="text-center py-12 text-gray-500">
-                  <p>No transcript available yet.</p>
+                  <p>No transcript or audio available yet.</p>
                   <p className="mt-2 text-sm">
                     {transcript
                       ? "Transcript exists but no segments found."
@@ -247,6 +686,13 @@ export default function ClientPage({
                         <div className="ml-11">
                           <form
                             action={async (formData) => {
+                              if (comment.has_audio && audioFeedbackBlob) {
+                                formData.append(
+                                  "audio_feedback",
+                                  audioFeedbackBlob,
+                                );
+                                formData.append("has_audio_feedback", "true");
+                              }
                               const result = await editCommentAction(formData);
                               if (result?.redirectUrl) {
                                 window.location.href = result.redirectUrl;
@@ -264,31 +710,88 @@ export default function ClientPage({
                               name="session_id"
                               value={sessionId}
                             />
-                            <textarea
-                              name="content"
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              required
-                            ></textarea>
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={handleCancelEdit}
-                              >
-                                Cancel
-                              </Button>
-                              <Button type="submit" size="sm">
-                                Save
-                              </Button>
-                            </div>
+
+                            {comment.has_audio ? (
+                              <div className="space-y-3">
+                                <div className="text-sm text-gray-600">
+                                  Re-record your audio feedback:
+                                </div>
+                                <AudioRecorder
+                                  onRecordingComplete={(blob) =>
+                                    setAudioFeedbackBlob(blob)
+                                  }
+                                  initialAudioUrl={
+                                    comment.audio_url || undefined
+                                  }
+                                />
+                                <input
+                                  type="hidden"
+                                  name="content"
+                                  value="[Audio Feedback]"
+                                />
+                                <div className="flex justify-end gap-2 mt-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={!audioFeedbackBlob}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <textarea
+                                  name="content"
+                                  value={editContent}
+                                  onChange={(e) =>
+                                    setEditContent(e.target.value)
+                                  }
+                                  className="w-full p-2 text-sm border rounded-md min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  required
+                                ></textarea>
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button type="submit" size="sm">
+                                    Save
+                                  </Button>
+                                </div>
+                              </>
+                            )}
                           </form>
                         </div>
                       ) : (
-                        <div className="ml-11 text-gray-800">
-                          {comment.content}
+                        <div className="ml-11">
+                          {comment.has_audio ? (
+                            <div className="space-y-2">
+                              <div className="text-sm text-gray-600 flex items-center gap-1">
+                                <Volume2 size={14} />
+                                <span>Audio Feedback</span>
+                              </div>
+                              <AudioFeedbackPlayer
+                                audioUrl={comment.audio_url || ""}
+                              />
+                            </div>
+                          ) : (
+                            <div className="text-gray-800">
+                              {comment.content}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -353,8 +856,22 @@ export default function ClientPage({
                                     </div>
                                   )}
                               </div>
-                              <div className="ml-8 text-sm text-gray-800">
-                                {reply.content}
+                              <div className="ml-8">
+                                {reply.has_audio ? (
+                                  <div className="space-y-2">
+                                    <div className="text-xs text-gray-600 flex items-center gap-1">
+                                      <Volume2 size={12} />
+                                      <span>Audio Reply</span>
+                                    </div>
+                                    <AudioFeedbackPlayer
+                                      audioUrl={reply.audio_url || ""}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="text-sm text-gray-800">
+                                    {reply.content}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -363,36 +880,108 @@ export default function ClientPage({
 
                       {!editingComment && (
                         <div className="ml-11 mt-3">
-                          <form
-                            action={async (formData) => {
-                              const result = await addCommentAction(formData);
-                              if (result?.redirectUrl) {
-                                window.location.href = result.redirectUrl;
-                              }
-                            }}
-                            className="flex gap-2"
-                          >
-                            <input
-                              type="hidden"
-                              name="session_id"
-                              value={sessionId}
-                            />
-                            <input
-                              type="hidden"
-                              name="parent_id"
-                              value={comment.id}
-                            />
-                            <input
-                              type="text"
-                              name="content"
-                              placeholder="Reply to this comment..."
-                              className="flex-grow text-sm px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              required
-                            />
-                            <Button type="submit" size="sm" variant="outline">
-                              Reply
-                            </Button>
-                          </form>
+                          <Tabs defaultValue="text" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2">
+                              <TabsTrigger
+                                value="text"
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <MessageSquare size={12} />
+                                Text
+                              </TabsTrigger>
+                              <TabsTrigger
+                                value="audio"
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <Mic size={12} />
+                                Audio
+                              </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="text" className="mt-2">
+                              <form
+                                action={async (formData) => {
+                                  const result =
+                                    await addCommentAction(formData);
+                                  if (result?.redirectUrl) {
+                                    window.location.href = result.redirectUrl;
+                                  }
+                                }}
+                                className="flex gap-2"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="session_id"
+                                  value={sessionId}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="parent_id"
+                                  value={comment.id}
+                                />
+                                <input
+                                  type="text"
+                                  name="content"
+                                  placeholder="Reply to this comment..."
+                                  className="flex-grow text-sm px-3 py-1 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  required
+                                />
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  Reply
+                                </Button>
+                              </form>
+                            </TabsContent>
+                            <TabsContent value="audio" className="mt-2">
+                              <form
+                                action={async (formData) => {
+                                  formData.append("has_audio_feedback", "true");
+                                  formData.append("content", "[Audio Reply]");
+                                  const result =
+                                    await addCommentAction(formData);
+                                  if (result?.redirectUrl) {
+                                    window.location.href = result.redirectUrl;
+                                  }
+                                }}
+                                className="space-y-2"
+                              >
+                                <input
+                                  type="hidden"
+                                  name="session_id"
+                                  value={sessionId}
+                                />
+                                <input
+                                  type="hidden"
+                                  name="parent_id"
+                                  value={comment.id}
+                                />
+                                <AudioRecorder
+                                  onRecordingComplete={(blob) => {
+                                    const formData = new FormData();
+                                    formData.append("session_id", sessionId);
+                                    formData.append("parent_id", comment.id);
+                                    formData.append(
+                                      "has_audio_feedback",
+                                      "true",
+                                    );
+                                    formData.append("content", "[Audio Reply]");
+                                    formData.append("audio_feedback", blob);
+
+                                    addCommentAction(formData).then(
+                                      (result) => {
+                                        if (result?.redirectUrl) {
+                                          window.location.href =
+                                            result.redirectUrl;
+                                        }
+                                      },
+                                    );
+                                  }}
+                                />
+                              </form>
+                            </TabsContent>
+                          </Tabs>
                         </div>
                       )}
                     </div>
@@ -412,21 +1001,71 @@ export default function ClientPage({
             <div className="mt-6 pt-6 border-t">
               <form
                 action={async (formData) => {
+                  if (audioFeedbackBlob) {
+                    formData.append("audio_feedback", audioFeedbackBlob);
+                  }
                   const result = await addCommentAction(formData);
                   if (result?.redirectUrl) {
+                    setAudioFeedbackBlob(null);
+                    setCommentType("text");
                     window.location.href = result.redirectUrl;
                   }
                 }}
                 className="space-y-4"
               >
                 <input type="hidden" name="session_id" value={sessionId} />
-                <textarea
-                  name="content"
-                  placeholder="Add your general feedback here..."
-                  className="w-full p-3 border rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                ></textarea>
-                <Button type="submit" className="w-full">
+                {audioFeedbackBlob && (
+                  <input type="hidden" name="has_audio_feedback" value="true" />
+                )}
+
+                <Tabs
+                  defaultValue="text"
+                  className="w-full"
+                  onValueChange={(value) =>
+                    setCommentType(value as "text" | "audio")
+                  }
+                >
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger
+                      value="text"
+                      className="flex items-center gap-2"
+                    >
+                      <MessageSquare size={16} />
+                      Text Feedback
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="audio"
+                      className="flex items-center gap-2"
+                    >
+                      <Mic size={16} />
+                      Audio Feedback
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="text" className="mt-4">
+                    <textarea
+                      name="content"
+                      placeholder="Add your general feedback here..."
+                      className="w-full p-3 border rounded-md min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={commentType === "text"}
+                    ></textarea>
+                  </TabsContent>
+                  <TabsContent value="audio" className="mt-4">
+                    <AudioRecorder
+                      onRecordingComplete={(blob) => setAudioFeedbackBlob(blob)}
+                    />
+                    <input
+                      type="hidden"
+                      name="content"
+                      value={commentType === "audio" ? "[Audio Feedback]" : ""}
+                    />
+                  </TabsContent>
+                </Tabs>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={commentType === "audio" && !audioFeedbackBlob}
+                >
                   Add General Comment
                 </Button>
               </form>
@@ -435,11 +1074,14 @@ export default function ClientPage({
         </div>
       </div>
       {/* Fixed Audio Player at bottom of viewport - always visible */}
-      <AudioPlayerControls
-        duration={session.duration}
-        onSeek={handleSeek}
-        isFixed={true}
-      />
+      <div className="fixed bottom-0 left-0 right-0 z-50 shadow-lg bg-white border-t border-gray-200">
+        <AudioPlayerControls
+          duration={session.duration || 3600}
+          onSeek={handleSeek}
+          isFixed={true}
+          currentTime={currentTime}
+        />
+      </div>
     </main>
   );
 }
@@ -472,6 +1114,7 @@ function SessionStatus({ status }: { status: string | null }) {
 }
 
 function formatTimestamp(seconds: number): string {
+  if (!seconds && seconds !== 0) return "0:00";
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = Math.floor(seconds % 60);
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;

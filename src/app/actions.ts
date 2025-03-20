@@ -145,7 +145,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   const confirmPassword = formData.get("confirmPassword") as string;
 
   if (!password || !confirmPassword) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/protected/reset-password",
       "Password and confirm password are required",
@@ -153,7 +153,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   }
 
   if (password !== confirmPassword) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/dashboard/reset-password",
       "Passwords do not match",
@@ -165,14 +165,18 @@ export const resetPasswordAction = async (formData: FormData) => {
   });
 
   if (error) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/dashboard/reset-password",
       "Password update failed",
     );
   }
 
-  encodedRedirect("success", "/protected/reset-password", "Password updated");
+  return encodedRedirect(
+    "success",
+    "/protected/reset-password",
+    "Password updated",
+  );
 };
 
 export const signOutAction = async () => {
@@ -298,6 +302,7 @@ export async function addCommentAction(formData: FormData) {
   const endTime = formData.get("end_time")
     ? parseFloat(formData.get("end_time") as string)
     : null;
+  const hasAudioFeedback = formData.get("has_audio_feedback") === "true";
 
   if (!sessionId || !content) {
     return encodedRedirect(
@@ -308,6 +313,37 @@ export async function addCommentAction(formData: FormData) {
   }
 
   try {
+    // Handle audio feedback if present
+    let audioFeedbackUrl = null;
+    if (hasAudioFeedback) {
+      try {
+        // Get the audio blob from the form data
+        const audioBlob = formData.get("audio_feedback") as Blob;
+
+        if (audioBlob) {
+          // Upload the audio feedback to storage
+          const filePath = `${user.id}/${sessionId}/feedback_${Date.now()}.wav`;
+          const { error: uploadError } = await supabase.storage
+            .from("feedback-recordings")
+            .upload(filePath, audioBlob, {
+              contentType: "audio/wav",
+            });
+
+          if (uploadError) {
+            console.error("Audio upload error:", uploadError);
+            throw new Error(
+              `Failed to upload audio feedback: ${uploadError.message}`,
+            );
+          }
+
+          audioFeedbackUrl = filePath;
+        }
+      } catch (audioError) {
+        console.error("Error processing audio feedback:", audioError);
+        // Continue without audio if there's an error, but log it
+      }
+    }
+
     const { error } = await supabase.from("comments").insert({
       session_id: sessionId,
       segment_id: segmentId || null,
@@ -316,11 +352,14 @@ export async function addCommentAction(formData: FormData) {
       content,
       start_time: startTime,
       end_time: endTime,
+      has_audio: hasAudioFeedback && audioFeedbackUrl !== null,
+      audio_url: audioFeedbackUrl,
     });
 
     if (error) {
+      console.error("Supabase insert error:", error);
       throw new Error(
-        `Failed to add comment: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to add comment: ${error.message || "Unknown error"}`,
       );
     }
 
@@ -357,6 +396,7 @@ export async function editCommentAction(formData: FormData) {
   const commentId = formData.get("comment_id") as string;
   const sessionId = formData.get("session_id") as string;
   const content = formData.get("content") as string;
+  const hasAudioFeedback = formData.get("has_audio_feedback") === "true";
 
   if (!commentId || !sessionId || !content) {
     return encodedRedirect(
@@ -370,7 +410,7 @@ export async function editCommentAction(formData: FormData) {
     // First check if the user owns this comment
     const { data: comment, error: fetchError } = await supabase
       .from("comments")
-      .select("user_id")
+      .select("user_id, audio_url")
       .eq("id", commentId)
       .maybeSingle();
 
@@ -390,10 +430,46 @@ export async function editCommentAction(formData: FormData) {
       );
     }
 
+    // Handle audio feedback if present
+    let audioFeedbackUrl = comment.audio_url;
+    if (hasAudioFeedback) {
+      try {
+        // Get the audio blob from the form data
+        const audioBlob = formData.get("audio_feedback") as Blob;
+
+        if (audioBlob) {
+          // Upload the audio feedback to storage
+          const filePath = `${user.id}/${sessionId}/feedback_${Date.now()}.wav`;
+          const { error: uploadError } = await supabase.storage
+            .from("feedback-recordings")
+            .upload(filePath, audioBlob, {
+              contentType: "audio/wav",
+            });
+
+          if (uploadError) {
+            console.error("Audio upload error:", uploadError);
+            throw new Error(
+              `Failed to upload audio feedback: ${uploadError.message}`,
+            );
+          }
+
+          audioFeedbackUrl = filePath;
+        }
+      } catch (audioError) {
+        console.error("Error processing audio feedback:", audioError);
+        // Continue with existing audio if there's an error, but log it
+      }
+    }
+
     // Update the comment
     const { error } = await supabase
       .from("comments")
-      .update({ content, updated_at: new Date().toISOString() })
+      .update({
+        content,
+        updated_at: new Date().toISOString(),
+        has_audio: hasAudioFeedback && audioFeedbackUrl !== null,
+        audio_url: audioFeedbackUrl,
+      })
       .eq("id", commentId);
 
     if (error) {

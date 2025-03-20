@@ -21,23 +21,41 @@ interface AudioPlayerControlsProps {
   duration?: number;
   onSeek?: (time: number) => void;
   isFixed?: boolean;
+  currentTime?: number;
+  isPlaying?: boolean;
+  onPlayPause?: () => void;
 }
 
 export default function AudioPlayerControls({
   duration = 3600, // Default to 1 hour
   onSeek,
   isFixed = false,
+  currentTime: externalCurrentTime,
+  isPlaying = false,
+  onPlayPause = () => {},
 }: AudioPlayerControlsProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlayingState, setIsPlayingState] = useState(isPlaying);
+  const [currentTime, setCurrentTime] = useState(externalCurrentTime || 0);
   const [volume, setVolume] = useState(0.7);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const playerRef = useRef<HTMLDivElement>(null);
 
+  // Sync with external current time if provided
+  useEffect(() => {
+    if (externalCurrentTime !== undefined) {
+      setCurrentTime(externalCurrentTime);
+    }
+  }, [externalCurrentTime]);
+
+  // Sync with external isPlaying if provided
+  useEffect(() => {
+    setIsPlayingState(isPlaying);
+  }, [isPlaying]);
+
   // Simulate playback progress
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isPlaying) {
+    if (isPlayingState) {
       interval = setInterval(() => {
         setCurrentTime((prevTime) => {
           const newTime = prevTime + 1 * playbackSpeed;
@@ -46,7 +64,7 @@ export default function AudioPlayerControls({
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, duration, playbackSpeed]);
+  }, [isPlayingState, duration, playbackSpeed]);
 
   // Keyboard controls
   useEffect(() => {
@@ -68,7 +86,7 @@ export default function AudioPlayerControls({
       // Prevent default space behavior (scrolling)
       if (e.code === "Space") {
         e.preventDefault();
-        setIsPlaying((prev) => !prev);
+        handlePlayPause();
       }
 
       // Arrow keys for seeking
@@ -98,7 +116,8 @@ export default function AudioPlayerControls({
   };
 
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    setIsPlayingState(!isPlayingState);
+    if (onPlayPause) onPlayPause();
   };
 
   const handleSkipForward = () => {
@@ -143,11 +162,11 @@ export default function AudioPlayerControls({
             <SkipBack size={20} />
           </button>
           <button
-            className={`${isPlaying ? "bg-blue-700" : "bg-blue-600"} text-white rounded-full p-2 hover:bg-blue-700`}
+            className={`${isPlayingState ? "bg-blue-700" : "bg-blue-600"} text-white rounded-full p-2 hover:bg-blue-700`}
             onClick={handlePlayPause}
-            aria-label={isPlaying ? "Pause" : "Play"}
+            aria-label={isPlayingState ? "Pause" : "Play"}
           >
-            {isPlaying ? (
+            {isPlayingState ? (
               <Pause size={20} />
             ) : (
               <Play size={20} fill="currentColor" />
