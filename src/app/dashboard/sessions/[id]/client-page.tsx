@@ -66,6 +66,8 @@ export default function ClientPage({
   const [editingAudioComment, setEditingAudioComment] = useState<string | null>(
     null,
   );
+  const [currentSegmentId, setCurrentSegmentId] = useState<string | null>(null);
+  const segmentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const mainContentRef = useRef<HTMLDivElement>(null);
   const userId = session?.counselor?.id || "";
   const hasAudio = true; // Force audio player to show for debugging
@@ -89,7 +91,66 @@ export default function ClientPage({
   const handleSeek = (time: number) => {
     setCurrentTime(time);
     // In a real implementation, this would control the actual audio playback
+
+    // Find and highlight the segment at this time
+    if (segments && segments.length > 0) {
+      const segment = segments.find(
+        (seg) => time >= seg.start_time && time <= seg.end_time,
+      );
+
+      if (segment) {
+        setCurrentSegmentId(segment.id);
+      }
+    }
   };
+
+  // Find the current segment based on playback time
+  useEffect(() => {
+    if (!segments || segments.length === 0) return;
+
+    const currentSegment = segments.find(
+      (segment) =>
+        currentTime >= segment.start_time && currentTime <= segment.end_time,
+    );
+
+    // If no segment matches exactly, find the closest upcoming segment
+    if (!currentSegment && currentTime > 0) {
+      const upcomingSegments = segments.filter(
+        (segment) => segment.start_time > currentTime,
+      );
+      if (upcomingSegments.length > 0) {
+        // Sort by start time and get the closest one
+        const closestSegment = upcomingSegments.sort(
+          (a, b) => a.start_time - b.start_time,
+        )[0];
+        if (closestSegment && closestSegment.id !== currentSegmentId) {
+          setCurrentSegmentId(closestSegment.id);
+        }
+      }
+    } else if (currentSegment && currentSegment.id !== currentSegmentId) {
+      setCurrentSegmentId(currentSegment.id);
+
+      // Scroll to the current segment, positioning it at the top 1/3 of the viewport
+      const segmentElement = segmentRefs.current[currentSegment.id];
+      if (segmentElement) {
+        // Calculate viewport height and desired offset (1/3 from the top)
+        const viewportHeight = window.innerHeight;
+        const offsetFromTop = viewportHeight / 3;
+
+        // Get the element's position
+        const rect = segmentElement.getBoundingClientRect();
+
+        // Calculate the scroll position to place the element at 1/3 from the top
+        const scrollPosition = window.pageYOffset + rect.top - offsetFromTop;
+
+        // Scroll to the calculated position
+        window.scrollTo({
+          top: scrollPosition,
+          behavior: "smooth",
+        });
+      }
+    }
+  }, [currentTime, segments, currentSegmentId]);
 
   const handleAddTimestampComment = () => {
     setShowTimestampCommentForm(true);
@@ -146,12 +207,9 @@ export default function ClientPage({
         </div>
 
         {/* Main Content */}
-        <div
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-          ref={mainContentRef}
-        >
+        <div className="grid grid-cols-1 gap-6" ref={mainContentRef}>
           {/* Audio Player and Transcript */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6">
             {/* Transcript with selectable text or Audio Timeline */}
             <div className="bg-white rounded-xl p-6 border shadow-sm">
               <h2 className="text-xl font-semibold mb-4">Transcript</h2>
@@ -167,6 +225,8 @@ export default function ClientPage({
                     userRole={userRole}
                     comments={comments.filter((c) => c.segment_id)}
                     userId={userId}
+                    currentSegmentId={currentSegmentId}
+                    segmentRefs={segmentRefs}
                   />
                 </>
               ) : session.status === "transcribing" ? (
@@ -606,7 +666,7 @@ export default function ClientPage({
           </div>
 
           {/* General Comments Section */}
-          <div className="bg-white rounded-xl p-6 border shadow-sm">
+          <div className="bg-white rounded-xl p-6 border shadow-sm mt-6">
             <h2 className="text-xl font-semibold mb-4">General Feedback</h2>
 
             {comments && comments.filter((c) => !c.segment_id).length > 0 ? (

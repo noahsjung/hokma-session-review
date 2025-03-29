@@ -44,6 +44,10 @@ interface SelectableTranscriptProps {
   userRole: string;
   comments: Comment[];
   userId?: string;
+  currentSegmentId?: string | null;
+  segmentRefs?: React.MutableRefObject<{
+    [key: string]: HTMLDivElement | null;
+  }>;
 }
 
 export default function SelectableTranscript({
@@ -52,6 +56,8 @@ export default function SelectableTranscript({
   userRole,
   comments,
   userId,
+  currentSegmentId,
+  segmentRefs,
 }: SelectableTranscriptProps) {
   const [selectedSegment, setSelectedSegment] =
     useState<TranscriptSegment | null>(null);
@@ -67,8 +73,11 @@ export default function SelectableTranscript({
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
   const [commentType, setCommentType] = useState<"text" | "audio">("text");
   const [audioFeedbackBlob, setAudioFeedbackBlob] = useState<Blob | null>(null);
-  const segmentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const localSegmentRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const textRefs = useRef<{ [key: string]: HTMLParagraphElement | null }>({});
+
+  // Use provided segmentRefs or local refs
+  const actualSegmentRefs = segmentRefs || localSegmentRefs;
 
   // Group comments by segment ID for easier access
   const commentsBySegment = comments.reduce(
@@ -193,7 +202,7 @@ export default function SelectableTranscript({
       }
 
       // Position the comment form next to the selection
-      const segmentElement = segmentRefs.current[segment.id];
+      const segmentElement = actualSegmentRefs.current[segment.id];
       if (segmentElement) {
         const rect = range.getBoundingClientRect();
         const segmentRect = segmentElement.getBoundingClientRect();
@@ -558,13 +567,32 @@ export default function SelectableTranscript({
         {segments.map((segment) => (
           <div
             key={segment.id}
-            className="group relative flex"
-            ref={(el) => (segmentRefs.current[segment.id] = el)}
+            className={`group relative flex transition-all duration-300 ${currentSegmentId === segment.id ? "bg-blue-100 border-l-4 border-blue-500 pl-2" : ""}`}
+            ref={(el) => (actualSegmentRefs.current[segment.id] = el)}
             onMouseEnter={() => setHoveredSegment(segment.id)}
             onMouseLeave={() => setHoveredSegment(null)}
           >
-            <div className="flex-shrink-0 w-24 text-sm text-gray-500">
-              {formatTimestamp(segment.start_time)}
+            <div className="flex-shrink-0 w-16 text-sm text-gray-500 md:mr-2 sm:mb-1 flex items-center">
+              <div className="flex items-center gap-1">
+                {currentSegmentId === segment.id && (
+                  <span className="text-blue-500 animate-pulse">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                  </span>
+                )}
+                {formatTimestamp(segment.start_time)}
+              </div>
             </div>
             <div className="flex-grow relative">
               {segment.speaker && (

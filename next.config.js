@@ -29,4 +29,10 @@ if (process.env.NEXT_PUBLIC_TEMPO) {
   };
 }
 
+// Add port configuration to avoid EADDRINUSE error
+if (!process.env.NEXT_PUBLIC_TEMPO) {
+  nextConfig.experimental = nextConfig.experimental || {};
+  nextConfig.experimental.port = 3001;
+}
+
 module.exports = nextConfig;
