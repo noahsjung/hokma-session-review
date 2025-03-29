@@ -11,9 +11,11 @@ export type Database = {
     Tables: {
       comments: {
         Row: {
+          audio_url: string | null
           content: string
           created_at: string | null
           end_time: number | null
+          has_audio: boolean | null
           id: string
           parent_id: string | null
           segment_id: string | null
@@ -23,9 +25,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          audio_url?: string | null
           content: string
           created_at?: string | null
           end_time?: number | null
+          has_audio?: boolean | null
           id?: string
           parent_id?: string | null
           segment_id?: string | null
@@ -35,9 +39,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          audio_url?: string | null
           content?: string
           created_at?: string | null
           end_time?: number | null
+          has_audio?: boolean | null
           id?: string
           parent_id?: string | null
           segment_id?: string | null
@@ -254,7 +260,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_transcript: {
+        Args: {
+          session_id_param: string
+          full_text_param: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       user_role: "counselor" | "supervisor"

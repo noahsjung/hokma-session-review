@@ -111,14 +111,26 @@ export default async function Dashboard() {
                 </Button>
               </Link>
 
-              {userRole === "supervisor" && pendingSessions && pendingSessions.length > 0 && (
-                <Link href="/dashboard/sessions">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Review Pending Sessions
-                  </Button>
-                </Link>
-              )}
+              {userRole === "supervisor" &&
+                pendingSessions &&
+                pendingSessions.length > 0 && (
+                  <Link href="/dashboard/sessions">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                    >
+                      <Clock className="h-4 w-4" />
+                      Review Pending Sessions
+                    </Button>
+                  </Link>
+                )}
+
+              <Link href="/dashboard/sessions/dummy">
+                <Button variant="outline" className="flex items-center gap-2">
+                  <FileAudio className="h-4 w-4" />
+                  Create Dummy Session
+                </Button>
+              </Link>
 
               <Link href="/dashboard/analytics">
                 <Button variant="outline" className="flex items-center gap-2">
@@ -150,8 +162,8 @@ export default async function Dashboard() {
                       <th className="pb-2 font-medium">
                         {userRole === "supervisor" ? "Counselor" : "Date"}
                       </th>
+                      <th className="pb-2 font-medium">Duration</th>
                       <th className="pb-2 font-medium">Status</th>
-                      <th className="pb-2 font-medium">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -160,7 +172,13 @@ export default async function Dashboard() {
                         key={session.id}
                         className="border-b last:border-0 hover:bg-gray-50"
                       >
-                        <td className="py-3">{session.title}</td>
+                        <td className="py-3">
+                          <Link href={`/dashboard/sessions/${session.id}`}>
+                            <span className="hover:text-blue-600 hover:underline cursor-pointer">
+                              {session.title}
+                            </span>
+                          </Link>
+                        </td>
                         <td className="py-3">
                           {userRole === "supervisor"
                             ? session.users?.full_name
@@ -169,14 +187,12 @@ export default async function Dashboard() {
                               ).toLocaleDateString()}
                         </td>
                         <td className="py-3">
-                          <SessionStatus status={session.status} />
+                          {session.duration
+                            ? `${Math.floor(session.duration / 60)}:${(session.duration % 60).toString().padStart(2, "0")}`
+                            : "--"}
                         </td>
                         <td className="py-3">
-                          <Link href={`/dashboard/sessions/${session.id}`}>
-                            <Button variant="ghost" size="sm">
-                              View
-                            </Button>
-                          </Link>
+                          <SessionStatus status={session.status} />
                         </td>
                       </tr>
                     ))}

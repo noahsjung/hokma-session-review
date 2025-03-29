@@ -14,6 +14,7 @@ export const signUpAction = async (formData: FormData) => {
     (formData
       .get("role")
       ?.toString() as Database["public"]["Enums"]["user_role"]) || "counselor";
+  console.log("Selected role during signup:", role);
   const supabase = await createClient();
   const origin = headers().get("origin");
 
@@ -44,8 +45,14 @@ export const signUpAction = async (formData: FormData) => {
   console.log("After signUp", error);
 
   if (error) {
-    console.error(error instanceof Error ? error.code + " " + error.message : error);
-    return encodedRedirect("error", "/sign-up", error instanceof Error ? error.message : "An unknown error occurred");
+    console.error(
+      error instanceof Error ? error.code + " " + error.message : error,
+    );
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 
   if (user) {
@@ -87,7 +94,11 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error instanceof Error ? error.message : "An unknown error occurred");
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 
   return redirect("/dashboard");
@@ -109,7 +120,11 @@ export const forgotPasswordAction = async (formData: FormData) => {
 
   if (error) {
     console.error(error instanceof Error ? error.message : error);
-    return encodedRedirect("error", "/forgot-password", "Failed to send reset password link");
+    return encodedRedirect(
+      "error",
+      "/forgot-password",
+      "Failed to send reset password link",
+    );
   }
 
   if (callbackUrl) {
@@ -130,7 +145,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   const confirmPassword = formData.get("confirmPassword") as string;
 
   if (!password || !confirmPassword) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/protected/reset-password",
       "Password and confirm password are required",
@@ -138,7 +153,7 @@ export const resetPasswordAction = async (formData: FormData) => {
   }
 
   if (password !== confirmPassword) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/dashboard/reset-password",
       "Passwords do not match",
@@ -150,14 +165,18 @@ export const resetPasswordAction = async (formData: FormData) => {
   });
 
   if (error) {
-    encodedRedirect(
+    return encodedRedirect(
       "error",
       "/dashboard/reset-password",
       "Password update failed",
     );
   }
 
-  encodedRedirect("success", "/protected/reset-password", "Password updated");
+  return encodedRedirect(
+    "success",
+    "/protected/reset-password",
+    "Password updated",
+  );
 };
 
 export const signOutAction = async () => {
@@ -250,11 +269,15 @@ export const createSessionAction = async (formData: FormData) => {
     return redirect(`/dashboard/sessions/${session.id}`);
   } catch (error) {
     console.error("Error in session creation:", error);
-    return encodedRedirect("error", "/dashboard/sessions/new", error instanceof Error ? error.message : "An unknown error occurred");
+    return encodedRedirect(
+      "error",
+      "/dashboard/sessions/new",
+      error instanceof Error ? error.message : "An unknown error occurred",
+    );
   }
 };
 
-export const addCommentAction = async (formData: FormData) => {
+export async function addCommentAction(formData: FormData) {
   const supabase = await createClient();
 
   const {
@@ -279,6 +302,7 @@ export const addCommentAction = async (formData: FormData) => {
   const endTime = formData.get("end_time")
     ? parseFloat(formData.get("end_time") as string)
     : null;
+  const hasAudioFeedback = formData.get("has_audio_feedback") === "true";
 
   if (!sessionId || !content) {
     return encodedRedirect(
@@ -289,6 +313,37 @@ export const addCommentAction = async (formData: FormData) => {
   }
 
   try {
+    // Handle audio feedback if present
+    let audioFeedbackUrl = null;
+    if (hasAudioFeedback) {
+      try {
+        // Get the audio blob from the form data
+        const audioBlob = formData.get("audio_feedback") as Blob;
+
+        if (audioBlob) {
+          // Upload the audio feedback to storage
+          const filePath = `${user.id}/${sessionId}/feedback_${Date.now()}.wav`;
+          const { error: uploadError } = await supabase.storage
+            .from("feedback-recordings")
+            .upload(filePath, audioBlob, {
+              contentType: "audio/wav",
+            });
+
+          if (uploadError) {
+            console.error("Audio upload error:", uploadError);
+            throw new Error(
+              `Failed to upload audio feedback: ${uploadError.message}`,
+            );
+          }
+
+          audioFeedbackUrl = filePath;
+        }
+      } catch (audioError) {
+        console.error("Error processing audio feedback:", audioError);
+        // Continue without audio if there's an error, but log it
+      }
+    }
+
     const { error } = await supabase.from("comments").insert({
       session_id: sessionId,
       segment_id: segmentId || null,
@@ -297,19 +352,216 @@ export const addCommentAction = async (formData: FormData) => {
       content,
       start_time: startTime,
       end_time: endTime,
+      has_audio: hasAudioFeedback && audioFeedbackUrl !== null,
+      audio_url: audioFeedbackUrl,
     });
 
     if (error) {
-      throw new Error(`Failed to add comment: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Supabase insert error:", error);
+      throw new Error(
+        `Failed to add comment: ${error.message || "Unknown error"}`,
+      );
     }
 
-    return redirect(`/dashboard/sessions/${sessionId}`);
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment added successfully`,
+    };
   } catch (error) {
     console.error("Error adding comment:", error);
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
+  }
+}
+
+export async function editCommentAction(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      "You must be logged in to edit a comment",
+    );
+  }
+
+  const commentId = formData.get("comment_id") as string;
+  const sessionId = formData.get("session_id") as string;
+  const content = formData.get("content") as string;
+  const hasAudioFeedback = formData.get("has_audio_feedback") === "true";
+
+  if (!commentId || !sessionId || !content) {
     return encodedRedirect(
       "error",
       `/dashboard/sessions/${sessionId}`,
-      error instanceof Error ? error.message : "Unknown error",
+      "Comment ID, session ID, and content are required",
     );
   }
-};
+
+  try {
+    // First check if the user owns this comment
+    const { data: comment, error: fetchError } = await supabase
+      .from("comments")
+      .select("user_id, audio_url")
+      .eq("id", commentId)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (!comment) {
+      throw new Error(`Comment not found with ID: ${commentId}`);
+    }
+
+    if (comment.user_id !== user.id) {
+      return encodedRedirect(
+        "error",
+        `/dashboard/sessions/${sessionId}`,
+        "You can only edit your own comments",
+      );
+    }
+
+    // Handle audio feedback if present
+    let audioFeedbackUrl = comment.audio_url;
+    if (hasAudioFeedback) {
+      try {
+        // Get the audio blob from the form data
+        const audioBlob = formData.get("audio_feedback") as Blob;
+
+        if (audioBlob) {
+          // Upload the audio feedback to storage
+          const filePath = `${user.id}/${sessionId}/feedback_${Date.now()}.wav`;
+          const { error: uploadError } = await supabase.storage
+            .from("feedback-recordings")
+            .upload(filePath, audioBlob, {
+              contentType: "audio/wav",
+            });
+
+          if (uploadError) {
+            console.error("Audio upload error:", uploadError);
+            throw new Error(
+              `Failed to upload audio feedback: ${uploadError.message}`,
+            );
+          }
+
+          audioFeedbackUrl = filePath;
+        }
+      } catch (audioError) {
+        console.error("Error processing audio feedback:", audioError);
+        // Continue with existing audio if there's an error, but log it
+      }
+    }
+
+    // Update the comment
+    const { error } = await supabase
+      .from("comments")
+      .update({
+        content,
+        updated_at: new Date().toISOString(),
+        has_audio: hasAudioFeedback && audioFeedbackUrl !== null,
+        audio_url: audioFeedbackUrl,
+      })
+      .eq("id", commentId);
+
+    if (error) {
+      throw new Error(`Failed to update comment: ${error.message}`);
+    }
+
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment updated successfully`,
+    };
+  } catch (error) {
+    console.error("Error editing comment:", error);
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
+  }
+}
+
+export async function deleteCommentAction(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return encodedRedirect(
+      "error",
+      "/sign-in",
+      "You must be logged in to delete a comment",
+    );
+  }
+
+  const commentId = formData.get("comment_id") as string;
+  const sessionId = formData.get("session_id") as string;
+
+  if (!commentId || !sessionId) {
+    return encodedRedirect(
+      "error",
+      `/dashboard/sessions/${sessionId}`,
+      "Comment ID and session ID are required",
+    );
+  }
+
+  try {
+    // First check if the user owns this comment
+    const { data: comment, error: fetchError } = await supabase
+      .from("comments")
+      .select("user_id")
+      .eq("id", commentId)
+      .maybeSingle();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch comment: ${fetchError.message}`);
+    }
+
+    if (!comment) {
+      throw new Error(`Comment not found with ID: ${commentId}`);
+    }
+
+    if (comment.user_id !== user.id) {
+      return encodedRedirect(
+        "error",
+        `/dashboard/sessions/${sessionId}`,
+        "You can only delete your own comments",
+      );
+    }
+
+    // Delete the comment
+    const { error } = await supabase
+      .from("comments")
+      .delete()
+      .eq("id", commentId);
+
+    if (error) {
+      throw new Error(`Failed to delete comment: ${error.message}`);
+    }
+
+    // Return the URL instead of redirecting directly
+    return {
+      success: true,
+      redirectUrl: `/dashboard/sessions/${sessionId}?success=Comment deleted successfully`,
+    };
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    // Return the error URL instead of redirecting directly
+    return {
+      success: false,
+      redirectUrl: `/dashboard/sessions/${sessionId}?error=${encodeURIComponent(error instanceof Error ? error.message : "Unknown error")}`,
+    };
+  }
+}

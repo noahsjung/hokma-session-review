@@ -19,18 +19,13 @@ import {
   BarChart,
   Users,
 } from "lucide-react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function DashboardNavbar() {
   const supabase = createClient();
   const router = useRouter();
-  let pathname = "/";
-
-  try {
-    pathname = usePathname() || "/";
-  } catch (error) {
-    console.error("Error getting pathname:", error);
-  }
+  // Use a static pathname instead of usePathname to avoid hook errors
+  let pathname = typeof window !== "undefined" ? window.location.pathname : "/";
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white py-4">
