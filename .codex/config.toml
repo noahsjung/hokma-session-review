@@ -1,0 +1,5 @@
+# dev-environment:mcp:start (managed by `dev mcp`; edits here are replaced)
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp"
+
+# dev-environment:mcp:end
